@@ -28,7 +28,6 @@ def save_memory(memories):
         json.dump(memories, f, ensure_ascii=False, indent=2)
 
 def ask_superhuman_brain(prompt: str, context: str, has_media: bool = False, media_type: str = ""):
-    """Kích hoạt bộ não Siêu Nhân AI kết nối đa mô hình đỉnh cao"""
     models = ["openai", "qwen", "mistral"]
     
     media_info = ""
@@ -89,7 +88,7 @@ HTML_PAGE = """
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            padding-bottom: 95px; /* Giữ khoảng trống cho thanh nhập cố định */
+            padding-bottom: 85px;
         }
 
         .backdrop-overlay {
@@ -120,14 +119,14 @@ HTML_PAGE = """
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 16px;
+            padding: 10px 14px;
             background: rgba(15, 23, 42, 0.9);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
         }
         .header-title h1 {
-            font-size: 18px;
+            font-size: 17px;
             background: linear-gradient(135deg, #00f2fe, #4facfe, #a855f7);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -145,24 +144,24 @@ HTML_PAGE = """
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.15);
             color: #e2e8f0;
-            padding: 6px 10px;
+            padding: 5px 9px;
             border-radius: 8px;
-            font-size: 12px;
+            font-size: 11px;
             cursor: pointer;
         }
 
         /* Luồng tin nhắn */
         .chat-stream {
             flex: 1;
-            padding: 16px 14px;
+            padding: 14px 12px;
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 12px;
         }
         .msg {
             max-width: 88%;
-            padding: 12px 16px;
-            border-radius: 16px;
+            padding: 12px 14px;
+            border-radius: 14px;
             font-size: 14px;
             line-height: 1.5;
             word-break: break-word;
@@ -183,8 +182,8 @@ HTML_PAGE = """
         }
         .msg img, .msg video {
             width: 100%;
-            max-height: 230px;
-            border-radius: 10px;
+            max-height: 220px;
+            border-radius: 8px;
             margin-top: 8px;
             object-fit: cover;
             display: block;
@@ -202,11 +201,11 @@ HTML_PAGE = """
         .attachment-preview {
             display: none;
             position: fixed;
-            bottom: 78px;
+            bottom: 72px;
             left: 0; right: 0;
             z-index: 99;
             background: rgba(15, 23, 42, 0.95);
-            padding: 6px 16px;
+            padding: 5px 12px;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
         .preview-inner {
@@ -222,8 +221,8 @@ HTML_PAGE = """
             width: fit-content;
         }
         .preview-inner img, .preview-inner video {
-            width: 32px;
-            height: 32px;
+            width: 30px;
+            height: 30px;
             object-fit: cover;
             border-radius: 4px;
         }
@@ -248,7 +247,7 @@ HTML_PAGE = """
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
             border-top: 1px solid rgba(255, 255, 255, 0.12);
-            padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 8px));
+            padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 8px));
         }
         .bottom-bar-inner {
             max-width: 650px;
@@ -256,14 +255,15 @@ HTML_PAGE = """
             display: flex;
             align-items: center;
             gap: 6px;
+            width: 100%;
         }
         .btn-icon {
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.15);
             color: #38bdf8;
-            width: 38px;
-            height: 44px;
-            border-radius: 10px;
+            width: 36px;
+            height: 42px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -271,15 +271,15 @@ HTML_PAGE = """
             cursor: pointer;
             flex-shrink: 0;
         }
-        .btn-icon:active {
-            transform: scale(0.92);
-        }
+        
+        /* Ô nhập câu hỏi: min-width: 0 giúp tự co giãn không bị tràn */
         .chat-input {
             flex: 1;
-            padding: 12px 14px;
+            min-width: 0;
+            padding: 10px 12px;
             background: rgba(8, 12, 20, 0.9);
             border: 1px solid rgba(255, 255, 255, 0.18);
-            border-radius: 10px;
+            border-radius: 8px;
             color: #fff;
             font-size: 14px;
             outline: none;
@@ -288,31 +288,30 @@ HTML_PAGE = """
             color: #64748b;
         }
 
-        /* NÚT ENTER / RUN PHÁT SÁNG CỰC ĐỈNH */
+        /* NÚT ENTER GỌN GÀNG, KHÔNG BỊ TRÀN */
         .btn-enter {
             background: linear-gradient(135deg, #10b981, #06b6d4);
             color: #ffffff;
             border: none;
-            padding: 0 16px;
-            height: 44px;
-            border-radius: 10px;
-            font-weight: 900;
-            font-size: 14px;
+            padding: 0 12px;
+            height: 42px;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 13.5px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
+            gap: 3px;
             flex-shrink: 0;
-            box-shadow: 0 0 16px rgba(16, 185, 129, 0.45);
-            letter-spacing: 0.5px;
+            white-space: nowrap;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
         }
         .btn-enter:active {
-            transform: scale(0.94);
-            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+            transform: scale(0.95);
         }
 
-        #fileInput, #cameraInput, #bgInput {
+        #fileInput, #bgInput {
             display: none;
         }
     </style>
@@ -337,7 +336,7 @@ HTML_PAGE = """
         <div class="chat-stream" id="chatStream">
             <div class="msg bot">
                 Chào bồ! Tôi là <b>Siêu Nhân Trí Tuệ Nhân Tạo AI Phdam</b>.<br><br>
-                Tôi sở hữu năng lực phân tích của hàng triệu mô hình AI hiện đại nhất. Bồ hãy nhập câu hỏi và bấm nút <b>ENTER ↵</b> màu xanh lá bên dưới để gửi tin nhé!
+                Bồ có thể bấm <b>dấu [+]</b> để tải ảnh/video/tài liệu, hoặc nhập câu hỏi rồi bấm nút <b>ENTER ↵</b> để tôi giải đáp nhé!
                 <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">🔊</button>
             </div>
         </div>
@@ -355,21 +354,17 @@ HTML_PAGE = """
     <!-- KHUNG NHẬP CỐ ĐỊNH Ở ĐÁY MÀN HÌNH -->
     <div class="bottom-bar">
         <form class="bottom-bar-inner" onsubmit="event.preventDefault(); sendPayload();">
-            <!-- Nút [+] -->
+            <!-- Nút [+] (Tải ảnh, video, camera hoặc tệp) -->
             <button type="button" class="btn-icon" onclick="document.getElementById('fileInput').click()" title="Tải ảnh/video/tệp">+</button>
             <input type="file" id="fileInput" accept="image/*,video/*,.txt,.pdf" onchange="handleFileSelected(event)">
 
-            <!-- Nút [📷] -->
-            <button type="button" class="btn-icon" onclick="document.getElementById('cameraInput').click()" title="Máy ảnh">📷</button>
-            <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handleFileSelected(event)">
-
-            <!-- Ô nhập câu hỏi -->
-            <input type="text" id="chatInput" class="chat-input" placeholder="Nhập câu hỏi tại đây..." autocomplete="off">
+            <!-- Ô nhập câu hỏi đã được làm gọn, không tràn lề -->
+            <input type="text" id="chatInput" class="chat-input" placeholder="Nhập câu hỏi..." autocomplete="off">
 
             <!-- Nút [🎙️] Micro -->
             <button type="button" class="btn-icon" id="micBtn" onclick="toggleMic()" title="Nói tiếng Việt">🎙️</button>
 
-            <!-- NÚT ENTER TO RÕ PHÁT SÁNG -->
+            <!-- NÚT ENTER GỌN GÀNG, VỪA VẶN MỌI MÀN HÌNH -->
             <button type="submit" class="btn-enter" title="Bấm gửi hoặc chạy">ENTER ↵</button>
         </form>
     </div>
@@ -436,7 +431,6 @@ HTML_PAGE = """
             attachDataUrl = '';
             document.getElementById('attachPreview').style.display = 'none';
             document.getElementById('fileInput').value = '';
-            document.getElementById('cameraInput').value = '';
         }
 
         async function sendPayload() {
