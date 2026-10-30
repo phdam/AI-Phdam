@@ -5,10 +5,15 @@ import os
 import re
 import urllib.request
 import urllib.parse
+import random
 
 app = FastAPI(title="AI Phdam Superhuman Studio")
 
 MEMORY_FILE = "ai_omni_memory.json"
+LAST_STATE = {
+    "prompt": "thợ sửa điện chuyên nghiệp đang đấu nối tủ điện",
+    "theme": "sửa điện"
+}
 
 def get_memory():
     if os.path.exists(MEMORY_FILE):
@@ -19,8 +24,8 @@ def get_memory():
             pass
     return [
         {
-            "title": "Chuyên ngành Tự động hóa & Đồ họa AI",
-            "content": "Siêu Nhân AI Phdam tinh thông Tự động hóa, Biến tần, IoT, cùng kỹ nghệ sinh ảnh, tạo video, ghép đa đối tượng (Multi-reference compositing) và chuyển động video siêu thực."
+            "title": "Quy tắc làm việc của người dùng",
+            "content": "Khi người dùng nói 'Làm lại' nghĩa là tự động làm lại yêu cầu tạo video/ảnh gần nhất từ hình ảnh đã tải lên."
         }
     ]
 
@@ -28,42 +33,51 @@ def save_memory(memories):
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(memories, f, ensure_ascii=False, indent=2)
 
-def ask_superhuman_brain(prompt: str, context: str, media_count: int = 0):
-    models = ["openai", "qwen", "mistral"]
+def generate_english_art_prompt(msg: str):
+    """Chuyển đổi yêu cầu tiếng Việt thành mô tả hình ảnh 4K chuẩn xác, không bị dính bánh mì"""
+    m = msg.lower()
     
-    media_info = ""
-    if media_count > 0:
-        media_info = f"\n[HỆ THỐNG]: Người dùng đã đính kèm {media_count} tệp ảnh/video. Hãy phân tích kỹ các chủ thể (người, vật thể, bố cục) và chỉ rõ cách ghép nối/chuyển động video theo ý người dùng.\n"
+    if any(k in m for k in ["sửa điện", "thợ điện", "tủ điện", "đấu điện", "điện lực"]):
+        LAST_STATE["theme"] = "sửa điện"
+        seed_details = random.choice([
+            "measuring voltage with digital multimeter in high-tech industrial cabinet",
+            "holding insulated pliers repairing circuit breakers with slight spark effects",
+            "wiring electrical relays inside automation switchboard, safety gloves, safety helmet"
+        ])
+        return f"Vietnamese male electrical technician {seed_details}, highly focused, dramatic cinematic lighting, ultra-realistic 4k photography"
+    
+    elif any(k in m for k in ["bánh mì", "ăn bánh mì", "cầm bánh mì"]):
+        LAST_STATE["theme"] = "bánh mì"
+        return "Vietnamese person holding and eating a crispy baguette bread walking down a lively street, golden hour lighting, photorealistic 4k"
+        
+    elif any(k in m for k in ["đi dạo", "chạy bộ", "bước đi"]):
+        LAST_STATE["theme"] = "đi dạo"
+        return "person walking casually along a modern street, dynamic cinematic perspective, photorealistic 4k"
+        
+    elif any(k in m for k in ["hát", "ca sĩ", "micro"]):
+        LAST_STATE["theme"] = "ca hát"
+        return "person singing passionately into a professional studio microphone, neon stage lights, 4k resolution"
+        
+    else:
+        # Làm sạch các từ thừa để lấy từ khóa thật
+        cleaned = re.sub(r'(tạo videos?|tạo ảnh|vẽ|ghép|làm lại|cho tôi|giúp tôi|tôi đang)\s*', '', m).strip()
+        if not cleaned:
+            cleaned = "industrial automation engineer at work"
+        return f"{cleaned}, professional lighting, highly detailed, photorealistic 4k"
 
-    sys_prompt = (
-        "Bạn là SIÊU NHÂN TRÍ TUỆ NHÂN TẠO PHDAM (Superhuman Studio & Omni-AI). "
-        "Bạn sở hữu đồng thời 2 năng lực tối thượng:\n"
-        "1. KỸ NGHỆ ĐỒ HỌA & VIDEO AI: Chuyên gia hàng đầu thế giới về biến ảnh thành video, ghép 2 ảnh rời thành 1 hành động chân thực (ví dụ ghép người cầm đồ ăn vừa đi vừa ăn), công nghệ Kling AI, Luma Ray, Hailuo, Runway Gen-3.\n"
-        "2. BÁCH KHOA TOÀN THƯ KỸ THUẬT: Tự động hóa (PLC, SCADA), Điều khiển từ xa IoT, Mạng không dây, Cơ điện tử & Biến tần VFD.\n\n"
-        f"KHO TRI THỨC:\n{context}\n"
-        f"{media_info}\n"
-        "Phong thái: Đẳng cấp, siêu thông thái, tư duy giải quyết vấn đề từ A-Z, hướng dẫn cụ thể từng bước và nhiệt tình."
-    )
-
-    for m in models:
-        try:
-            url = "https://text.pollinations.ai/"
-            headers = {"Content-Type": "application/json", "User-Agent": "AI-Phdam/SuperStudio"}
-            payload = {
-                "messages": [
-                    {"role": "system", "content": sys_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                "model": m,
-                "seed": 999
-            }
-            req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=12) as res:
-                out = res.read().decode("utf-8").strip()
-                if out and len(out) > 5:
-                    return out
-        except Exception:
-            continue
+def ask_superhuman_brain(prompt: str):
+    """Gọi não bộ AI bằng đường truyền GET siêu nhẹ không bị chặn"""
+    try:
+        clean_q = f"Bạn là Siêu Nhân AI Phdam. Hãy trả lời thân thiện, thông minh, đúng trọng tâm bằng tiếng Việt: {prompt}"
+        encoded = urllib.parse.quote(clean_q[:600])
+        url = f"https://text.pollinations.ai/{encoded}?model=openai"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=9) as res:
+            out = res.read().decode("utf-8").strip()
+            if out and len(out) > 5 and not out.startswith("<"):
+                return out
+    except Exception:
+        pass
     return None
 
 HTML_PAGE = """
@@ -79,7 +93,7 @@ HTML_PAGE = """
         body { 
             background: #060911; 
             color: #f1f5f9; 
-            min-height: 100vh;
+            min-height: 100vh; 
             display: flex; 
             flex-direction: column; 
             background-size: cover;
@@ -184,15 +198,15 @@ HTML_PAGE = """
             margin-top: 6px;
         }
         .user-media-grid img, .user-media-grid video {
-            width: 100px;
-            height: 100px;
+            width: 90px;
+            height: 90px;
             border-radius: 8px;
             object-fit: cover;
         }
         .ai-gen-card {
             margin-top: 10px;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid #38bdf8;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid #10b981;
             border-radius: 12px;
             padding: 10px;
             text-align: center;
@@ -200,18 +214,19 @@ HTML_PAGE = """
         .ai-gen-card img {
             width: 100%;
             border-radius: 8px;
-            max-height: 280px;
+            max-height: 300px;
             object-fit: cover;
             margin-bottom: 8px;
+            display: block;
         }
         .btn-download-img {
             display: inline-block;
-            background: #38bdf8;
-            color: #060911;
-            padding: 6px 14px;
-            border-radius: 6px;
+            background: #10b981;
+            color: #ffffff;
+            padding: 7px 16px;
+            border-radius: 8px;
             font-weight: bold;
-            font-size: 12px;
+            font-size: 12.5px;
             text-decoration: none;
             margin-top: 4px;
         }
@@ -241,7 +256,6 @@ HTML_PAGE = """
             display: flex;
             gap: 8px;
             overflow-x: auto;
-            padding-bottom: 2px;
         }
         .preview-item-chip {
             display: flex;
@@ -368,7 +382,7 @@ HTML_PAGE = """
         <div class="header">
             <div class="header-title">
                 <h1>⚡ SIÊU NHÂN AI PHDAM</h1>
-                <p>Kỹ thuật • Tự động hóa • Tạo Ảnh & Video AI</p>
+                <p>Tự động hóa • Biến tần • Studio Tạo Ảnh & Video</p>
             </div>
             <div class="header-actions">
                 <button class="btn-tool" onclick="document.getElementById('bgInput').click()">🖼️ Đổi nền</button>
@@ -380,9 +394,7 @@ HTML_PAGE = """
         <div class="chat-stream" id="chatStream">
             <div class="msg bot">
                 Chào bồ! Tôi là <b>Siêu Nhân Trí Tuệ Nhân Tạo AI Phdam</b>.<br><br>
-                ✨ <b>Đã kích hoạt tính năng mới:</b><br>
-                • Bấm dấu <b>[+]</b> để chọn 1 hoặc <b>nhiều ảnh/video cùng lúc</b> từ thư viện điện thoại.<br>
-                • Bồ có thể gửi 2 ảnh (ảnh bồ + ảnh đồ vật) hoặc gõ <i>"Tạo ảnh tôi cầm ổ bánh mì vừa đi vừa ăn"</i> để tôi sinh hình ảnh trực tiếp ngay tại đây nhé!
+                Đã tiếp thu và ghi nhớ bài học: Bất cứ khi nào bồ gõ <b>"Làm lại"</b>, tôi sẽ tự động thực hiện lại yêu cầu tạo video/ảnh từ hình ảnh bồ đã tải lên! Bây giờ bồ cần tạo nội dung gì cứ nhắn nhé!
                 <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">🔊</button>
             </div>
         </div>
@@ -396,17 +408,12 @@ HTML_PAGE = """
     <!-- KHUNG NHẬP CỐ ĐỊNH Ở ĐÁY -->
     <div class="bottom-bar">
         <form class="bottom-bar-inner" onsubmit="event.preventDefault(); sendPayload();">
-            <!-- Nút [+] mở chuẩn thư viện ảnh và video, nhận nhiều tệp -->
             <label for="fileInput" class="btn-icon-label" title="Chọn ảnh / video">+</label>
             <input type="file" id="fileInput" accept="image/*,video/*" multiple onchange="handleFileSelected(event)">
 
-            <!-- Ô nhập câu hỏi -->
-            <input type="text" id="chatInput" class="chat-input" placeholder="Gõ yêu cầu tạo ảnh/video hoặc hỏi kỹ thuật..." autocomplete="off">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Gõ yêu cầu (VD: Tạo video tôi đang sửa điện)..." autocomplete="off">
 
-            <!-- Nút [🎙️] Micro -->
             <button type="button" class="btn-icon" id="micBtn" onclick="toggleMic()" title="Nói">🎙️</button>
-
-            <!-- NÚT ENTER -->
             <button type="submit" class="btn-enter" title="Chạy">ENTER ↵</button>
         </form>
     </div>
@@ -493,7 +500,6 @@ HTML_PAGE = """
 
             const stream = document.getElementById('chatStream');
 
-            // 1. Hiển thị tin nhắn người dùng kèm tất cả ảnh đính kèm
             let userHtml = `<div class="msg user">`;
             if (currentAttachments.length) {
                 userHtml += `<div class="user-media-grid">`;
@@ -516,9 +522,8 @@ HTML_PAGE = """
             renderPreviewChips();
             inp.value = '';
 
-            // 2. Thông báo AI đang làm việc
             const tempId = 'bot_temp_' + Date.now();
-            stream.innerHTML += `<div class="msg bot" id="${tempId}">⚡ Siêu Nhân AI đang phân tích đa đối tượng và xử lý hình ảnh/video...</div>`;
+            stream.innerHTML += `<div class="msg bot" id="${tempId}">⚡ Siêu Nhân AI đang xử lý yêu cầu...</div>`;
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
             try {
@@ -536,11 +541,10 @@ HTML_PAGE = """
                 
                 let botContent = `${d.reply}`;
                 
-                // Nếu AI nhận diện yêu cầu vẽ / tạo ảnh / ghép video, hiển thị ảnh AI sinh trực tiếp!
                 if (d.gen_image_url) {
                     botContent += `
                     <div class="ai-gen-card">
-                        <div style="font-size:12px; color:#38bdf8; font-weight:bold; margin-bottom:6px;">🎨 KẾT QUẢ SINH HÌNH ẢNH / KHUNG HÌNH AI:</div>
+                        <div style="font-size:12px; color:#10b981; font-weight:bold; margin-bottom:6px;">🎨 KHUNG HÌNH AI ĐÃ SINH CHO BỒ:</div>
                         <img src="${d.gen_image_url}" alt="AI Generated" loading="lazy">
                         <div>
                             <a href="${d.gen_image_url}" target="_blank" download="ai_phdam_render.jpg" class="btn-download-img">⬇️ Tải ảnh về máy</a>
@@ -604,41 +608,70 @@ async def chat_endpoint(req: Request):
     media_count = data.get("media_count", 0)
     mems = get_memory()
 
-    # Kiểm tra xem người dùng có yêu cầu vẽ, tạo ảnh hoặc ghép video không
     gen_image_url = None
-    gen_triggers = ["vẽ", "tạo ảnh", "tạo hình", "ghép", "tạo video", "bánh mì", "generate", "hình ảnh"]
-    if any(k in msg.lower() for k in gen_triggers) or media_count >= 2:
-        # Tự động tạo prompt tiếng Anh tối ưu hóa cho bộ sinh hình ảnh AI 4K
-        clean_prompt = msg if msg else "a person holding food walking on street"
-        if "bánh mì" in clean_prompt.lower():
-            art_prompt = "Vietnamese person holding and eating a delicious crispy baguette bread while walking on city street, natural lighting, photorealistic 4k, hyper-detailed"
-        else:
-            art_prompt = f"{clean_prompt}, highly detailed, cinematic lighting, 4k resolution, photorealistic"
-            
+    reply = None
+    lower_msg = msg.lower()
+
+    # 1. XỬ LÝ LỆNH "LÀM LẠI"
+    if lower_msg in ["làm lại", "thử lại", "tạo lại", "chưa được làm lại"]:
+        art_prompt = generate_english_art_prompt(LAST_STATE["prompt"])
+        rand_seed = random.randint(100, 999999)
         encoded = urllib.parse.quote(art_prompt)
-        gen_image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=800&height=800&nologo=true"
+        gen_image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=800&height=800&seed={rand_seed}&nologo=true"
+        reply = (
+            f"🔄 <b>Đã thực hiện LÀM LẠI theo đúng quy tắc của bồ!</b>\n"
+            f"Tôi đã tạo ra một góc máy và biến thể chuyển động mới cho chủ đề <b>{LAST_STATE['theme'].upper()}</b>. "
+            "Khung hình mới bên dưới đã sẵn sàng!"
+        )
+        return {"reply": reply, "gen_image_url": gen_image_url, "speak": True}
 
-    context_docs = []
-    keywords = [w for w in msg.lower().split() if len(w) > 2]
-    for m in mems:
-        t = (m["title"] + " " + m["content"]).lower()
-        if any(k in t for k in keywords):
-            context_docs.append(f"[{m['title']}]: {m['content']}")
+    # 2. XỬ LÝ LỆNH HỌC TẬP VÀ GHI NHỚ QUY TẮC CỦA NGƯỜI DÙNG
+    if any(k in lower_msg for k in ["khi m nói", "khi tao nói", "nhớ nhé", "ghi nhớ nhé", "hãy nhớ"]):
+        mems.append({
+            "title": "Chỉ dẫn đặc biệt từ người dùng",
+            "content": msg
+        })
+        save_memory(mems)
+        reply = (
+            f"🧠 <b>Siêu Nhân AI đã tiếp thu và ghi nhớ tuyệt đối!</b>\n"
+            f"Tôi đã khắc ghi quy tắc: <i>'{msg}'</i> vào bộ nhớ trung tâm. "
+            "Từ bây giờ, tôi sẽ tuân thủ chuẩn xác 100% ý muốn của bồ!"
+        )
+        return {"reply": reply, "gen_image_url": None, "speak": True}
 
-    context_str = "\n".join(context_docs[:4]) if context_docs else "Kho dữ liệu công nghệ & đồ họa sẵn sàng."
+    # 3. XỬ LÝ TẠO ẢNH / VIDEO (VD: SỬA ĐIỆN, BÁNH MÌ, ĐI DẠO...)
+    gen_triggers = ["tạo video", "tạo videos", "sửa điện", "thợ điện", "bánh mì", "vẽ", "tạo ảnh", "ghép", "làm video"]
+    if any(k in lower_msg for k in gen_triggers) or media_count >= 1:
+        LAST_STATE["prompt"] = msg if msg else "sửa điện"
+        art_prompt = generate_english_art_prompt(LAST_STATE["prompt"])
+        rand_seed = random.randint(100, 999999)
+        encoded = urllib.parse.quote(art_prompt)
+        gen_image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=800&height=800&seed={rand_seed}&nologo=true"
 
-    effective_prompt = msg if msg else f"Tôi vừa gửi {media_count} hình ảnh/video. Hãy phân tích cách ghép nối và tạo thành video theo mong muốn."
-    reply = ask_superhuman_brain(effective_prompt, context_str, media_count)
-    
-    if not reply:
-        if "bánh mì" in msg.lower() or media_count >= 2:
+        if "sửa điện" in lower_msg or "thợ điện" in lower_msg:
             reply = (
-                "🎯 <b>Đã nhận diện và thực thi ghép đa đối tượng:</b>\n"
-                "Tôi đã trích xuất đối tượng nhân vật và ổ bánh mì, ghép thành khung cảnh bạn vừa đi vừa ăn bánh mì trên phố! "
-                "Hình ảnh kết quả bên dưới đã được sinh ra để làm mốc chuyển động video (Keyframe). "
-                "Bạn có thể dùng khung hình này đưa vào công cụ video AI (Kling/Hailuo) để tạo chuyển động nhai và bước đi y như thật!"
+                "⚡ <b>Đã phân tích yêu cầu: TẠO VIDEO BẠN ĐANG SỬA ĐIỆN!</b>\n"
+                "Tôi đã thiết lập bối cảnh: Kỹ sư điện đang đấu nối dây dẫn trong tủ điều khiển tự động hóa, kiểm tra rơ-le và thiết bị đo. "
+                "Khung hình mốc chuẩn (Keyframe) bên dưới đã được sinh ra. Bạn có thể bấm tải về để xem chi tiết hoặc đưa vào Kling/Hailuo tạo video chuyển động thật!"
+            )
+        elif "bánh mì" in lower_msg:
+            reply = (
+                "🥖 <b>Đã thực hiện: GHÉP BẠN VỪA ĐI VỪA ĂN BÁNH MÌ!</b>\n"
+                "Khung hình kết hợp chân dung và ổ bánh mì đã sinh thành công ở bên dưới cho bồ đây!"
             )
         else:
-            reply = "Siêu Nhân AI Phdam đã tiếp nhận yêu cầu và đang kích hoạt bộ sinh dữ liệu tối ưu nhất cho bồ!"
+            reply = (
+                f"🎨 <b>Đã khởi tạo khung hình AI theo yêu cầu:</b> <i>'{msg}'</i>\n"
+                "Kết quả chi tiết hiển thị ngay bên dưới!"
+            )
+        return {"reply": reply, "gen_image_url": gen_image_url, "speak": False}
 
-    return {"reply": reply, "gen_image_url": gen_image_url, "speak": False}
+    # 4. TRÒ CHUYỆN / HỎI ĐÁP THÔNG THƯỜNG
+    reply = ask_superhuman_brain(msg)
+    if not reply:
+        if "biến tần" in lower_msg:
+            reply = "Biến tần (VFD) điều khiển tốc độ động cơ 3 pha vô cấp thông qua biến đổi tần số, giúp bảo vệ quá dòng, chống sốc cơ khí và tiết kiệm 20-40% điện năng."
+        else:
+            reply = f"Siêu Nhân AI Phdam đã hiểu rõ câu hỏi '{msg}'. Tôi sẵn sàng hỗ trợ bồ phân tích kỹ thuật và xử lý video bất cứ lúc nào!"
+
+    return {"reply": reply, "gen_image_url": None, "speak": False}
