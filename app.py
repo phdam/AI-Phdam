@@ -7,7 +7,7 @@ import urllib.request
 import urllib.parse
 import random
 
-app = FastAPI(title="AI Phdam Superhuman Studio")
+app = FastAPI(title="AI Phdam Universal Polymath")
 
 MEMORY_FILE = "ai_omni_memory.json"
 LAST_STATE = {
@@ -22,16 +22,92 @@ def get_memory():
                 return json.load(f)
         except Exception:
             pass
-    return [
-        {
-            "title": "Quy tắc làm việc",
-            "content": "Khi người dùng gửi ảnh để hỏi (biết ai ko, cái gì đây), hãy nhận diện và phân tích ảnh. Chỉ sinh ảnh mới khi có lệnh 'vẽ', 'tạo', 'ghép'."
-        }
-    ]
+    return []
 
 def save_memory(memories):
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(memories, f, ensure_ascii=False, indent=2)
+
+MASTER_SYSTEM_PROMPT = (
+    "Bạn là SIÊU TRÍ TUỆ NHÂN TẠO PHDAM (Universal Polymath & Senior Consultant). "
+    "Bạn nắm giữ kho tàng tri thức khổng lồ của nhân loại về: Tự động hóa, Cơ điện tử, Biến tần, Viễn thông, IoT, Công nghệ AI, Vật lý, Toán học và Đời sống.\n\n"
+    "NGUYÊN TẮC TƯ DUY 4 BƯỚC BẮT BUỘC KHI TRẢ LỜI:\n"
+    "1. 🎯 NHẬN DIỆN CHÍNH XÁC: Nhìn nhận thẳng vào đối tượng/hình ảnh/câu hỏi, đọc đúng số liệu, chỉ rõ bản chất sự việc.\n"
+    "2. ⚖️ PHÂN TÍCH ƯU - NHƯỢC ĐIỂM / NGUYÊN NHÂN: Mổ xẻ chi tiết mặt mạnh, mặt yếu, rủi ro tiềm ẩn hoặc nguyên nhân gốc rễ.\n"
+    "3. 💡 PHƯƠNG ÁN XỬ LÝ TỐI ƯU NHẤT: Đưa ra giải pháp xuất sắc nhất (hiệu quả cao nhất, chi phí thấp nhất, an toàn và bền vững nhất).\n"
+    "4. 🛠️ HƯỚNG DẪN THỰC THI TỪNG BƯỚC: Hướng dẫn người dùng thao tác cụ thể, rõ ràng, thực tế và chuẩn xác từng thông số.\n\n"
+    "Phong thái: Đẳng cấp chuyên gia đầu ngành, tư duy sắc bén, dùng tiếng Việt trong sáng, mạch lạc, tôn trọng và tận tâm với người dùng."
+)
+
+def ask_vision_ai(prompt: str, image_data_url: str = None):
+    """Mắt Thần Thị Giác kết hợp Kho Tri Thức Toàn Cầu"""
+    try:
+        url = "https://text.pollinations.ai/"
+        headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+        
+        user_content = []
+        task_instruction = (
+            f"Quan sát thật kỹ bức ảnh này và áp dụng kho tri thức để trả lời câu hỏi: '{prompt}'.\n"
+            "Nếu có con số/chữ viết, hãy đọc thật chuẩn xác từng ký tự. "
+            "Sau đó phân tích sâu sắc ưu nhược điểm và đưa ra giải pháp tốt nhất."
+        )
+        user_content.append({"type": "text", "text": task_instruction})
+            
+        if image_data_url:
+            user_content.append({
+                "type": "image_url",
+                "image_url": {"url": image_data_url}
+            })
+
+        payload = {
+            "messages": [
+                {"role": "system", "content": MASTER_SYSTEM_PROMPT},
+                {"role": "user", "content": user_content if image_data_url else prompt}
+            ],
+            "model": "openai"
+        }
+        
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=18) as res:
+            out = res.read().decode("utf-8").strip()
+            if out and len(out) > 5 and not out.startswith("<"):
+                return out
+    except Exception:
+        pass
+    return None
+
+def ask_superhuman_brain(prompt: str):
+    """Gọi Não Bộ Toàn Cầu tư duy phân tích đa tầng"""
+    try:
+        url = "https://text.pollinations.ai/"
+        headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+        payload = {
+            "messages": [
+                {"role": "system", "content": MASTER_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
+            "model": "openai"
+        }
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=18) as res:
+            out = res.read().decode("utf-8").strip()
+            if out and len(out) > 5 and not out.startswith("<"):
+                return out
+    except Exception:
+        pass
+    
+    # Dự phòng đường truyền GET
+    try:
+        encoded = urllib.parse.quote(prompt[:500])
+        url_get = f"https://text.pollinations.ai/{encoded}?model=openai"
+        req_get = urllib.request.Request(url_get, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req_get, timeout=9) as res_get:
+            out_get = res_get.read().decode("utf-8").strip()
+            if out_get and len(out_get) > 5 and not out_get.startswith("<"):
+                return out_get
+    except Exception:
+        pass
+    return None
 
 def generate_english_art_prompt(msg: str):
     m = msg.lower()
@@ -46,31 +122,11 @@ def generate_english_art_prompt(msg: str):
     elif any(k in m for k in ["bánh mì", "ăn bánh mì", "cầm bánh mì"]):
         LAST_STATE["theme"] = "bánh mì"
         return "Vietnamese person holding and eating a crispy baguette bread walking down a lively street, golden hour lighting, photorealistic 4k"
-    elif any(k in m for k in ["đi dạo", "chạy bộ", "bước đi"]):
-        LAST_STATE["theme"] = "đi dạo"
-        return "person walking casually along a modern street, dynamic cinematic perspective, photorealistic 4k"
-    elif any(k in m for k in ["hát", "ca sĩ", "micro"]):
-        LAST_STATE["theme"] = "ca hát"
-        return "person singing passionately into a professional studio microphone, neon stage lights, 4k resolution"
     else:
         cleaned = re.sub(r'(tạo videos?|tạo ảnh|vẽ|ghép|làm lại|cho tôi|giúp tôi|tôi đang)\s*', '', m).strip()
         if not cleaned:
             cleaned = "industrial automation engineer at work"
         return f"{cleaned}, professional lighting, highly detailed, photorealistic 4k"
-
-def ask_superhuman_brain(prompt: str):
-    try:
-        clean_q = f"Bạn là Siêu Nhân AI Phdam. Hãy trả lời chi tiết, thông minh, đúng trọng tâm bằng tiếng Việt: {prompt}"
-        encoded = urllib.parse.quote(clean_q[:600])
-        url = f"https://text.pollinations.ai/{encoded}?model=openai"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=9) as res:
-            out = res.read().decode("utf-8").strip()
-            if out and len(out) > 5 and not out.startswith("<"):
-                return out
-    except Exception:
-        pass
-    return None
 
 HTML_PAGE = """
 <!DOCTYPE html>
@@ -78,7 +134,7 @@ HTML_PAGE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Siêu Nhân AI Phdam Studio</title>
+    <title>Siêu Nhân AI Phdam - Kho Tri Thức Toàn Cầu</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         
@@ -160,16 +216,16 @@ HTML_PAGE = """
             gap: 12px;
         }
         .msg {
-            max-width: 88%;
+            max-width: 90%;
             padding: 12px 14px;
             border-radius: 14px;
             font-size: 14px;
-            line-height: 1.5;
+            line-height: 1.55;
             word-break: break-word;
             box-shadow: 0 4px 15px rgba(0,0,0,0.25);
         }
         .msg.bot {
-            background: rgba(30, 41, 59, 0.92);
+            background: rgba(30, 41, 59, 0.94);
             color: #f8fafc;
             align-self: flex-start;
             border-bottom-left-radius: 4px;
@@ -369,7 +425,7 @@ HTML_PAGE = """
         <div class="header">
             <div class="header-title">
                 <h1>⚡ SIÊU NHÂN AI PHDAM</h1>
-                <p>Nhận diện ảnh • Tự động hóa • Video Studio</p>
+                <p>Kho Tri Thức Toàn Cầu • Phân Tích Đa Chiều</p>
             </div>
             <div class="header-actions">
                 <button class="btn-tool" onclick="document.getElementById('bgInput').click()">🖼️ Đổi nền</button>
@@ -380,9 +436,9 @@ HTML_PAGE = """
         <div class="chat-stream" id="chatStream">
             <div class="msg bot">
                 Chào bồ! Tôi là <b>Siêu Nhân Trí Tuệ Nhân Tạo AI Phdam</b>.<br><br>
-                👁️ <b>Đã kích hoạt Chế độ Nhận diện Mắt Thần:</b><br>
-                • Bồ tải ảnh lên và hỏi <i>"Biết ai đây không?"</i>, <i>"Cái này là gì?"</i> ➔ Tôi sẽ <b>soi ảnh để phân tích và trả lời trực tiếp</b>.<br>
-                • Chỉ khi bồ bảo <i>"Tạo video..."</i> hoặc <i>"Vẽ..."</i> ➔ Tôi mới sinh hình ảnh mới!
+                🌐 <b>ĐÃ KÍCH HOẠT KHO TRI THỨC TOÀN CẦU & TƯ DUY 4 BƯỚC:</b><br>
+                • Bồ có thể hỏi bất cứ vấn đề kỹ thuật, cơ điện, đời sống hoặc gửi ảnh lên.<br>
+                • Tôi sẽ <b>nhận diện bản chất ➔ phân tích ưu nhược điểm ➔ đưa ra giải pháp xử lý tốt nhất và hướng dẫn từng bước</b> cho bồ!
                 <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">🔊</button>
             </div>
         </div>
@@ -397,7 +453,7 @@ HTML_PAGE = """
             <label for="fileInput" class="btn-icon-label" title="Chọn ảnh / video">+</label>
             <input type="file" id="fileInput" accept="image/*,video/*" multiple onchange="handleFileSelected(event)">
 
-            <input type="text" id="chatInput" class="chat-input" placeholder="Gửi ảnh hỏi 'ai đây?' hoặc gõ câu hỏi..." autocomplete="off">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Hỏi giải pháp kỹ thuật, phân tích ưu nhược điểm..." autocomplete="off">
 
             <button type="button" class="btn-icon" id="micBtn" onclick="toggleMic()" title="Nói">🎙️</button>
             <button type="submit" class="btn-enter" title="Chạy">ENTER ↵</button>
@@ -494,151 +550,3 @@ HTML_PAGE = """
                         userHtml += `<video src="${att.dataUrl}" controls playsinline></video>`;
                     } else {
                         userHtml += `<img src="${att.dataUrl}">`;
-                    }
-                });
-                userHtml += `</div>`;
-            }
-            if (text) userHtml += `<div>${text}</div>`;
-            userHtml += `</div>`;
-            stream.innerHTML += userHtml;
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-
-            const sentCount = currentAttachments.length;
-            const sentNames = currentAttachments.map(a => a.name);
-            currentAttachments = [];
-            renderPreviewChips();
-            inp.value = '';
-
-            const tempId = 'bot_temp_' + Date.now();
-            stream.innerHTML += `<div class="msg bot" id="${tempId}">⚡ Siêu Nhân AI đang quan sát và phân tích kỹ lưỡng...</div>`;
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-
-            try {
-                const res = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        message: text,
-                        media_count: sentCount,
-                        file_names: sentNames
-                    })
-                });
-
-                const d = await res.json();
-                const tempBox = document.getElementById(tempId);
-                
-                let botContent = `${d.reply}`;
-                
-                if (d.gen_image_url) {
-                    botContent += `
-                    <div class="ai-gen-card">
-                        <div style="font-size:12px; color:#10b981; font-weight:bold; margin-bottom:6px;">🎨 KHUNG HÌNH AI ĐÃ SINH CHO BỒ:</div>
-                        <img src="${d.gen_image_url}" alt="AI Generated" loading="lazy">
-                        <div>
-                            <a href="${d.gen_image_url}" target="_blank" download="ai_phdam_render.jpg" class="btn-download-img">⬇️ Tải ảnh về máy</a>
-                        </div>
-                    </div>`;
-                }
-
-                botContent += ` <button class="speak-btn" onclick="speakText('${d.reply.replace(/['"\\n]/g, ' ')}')">🔊</button>`;
-                tempBox.innerHTML = botContent;
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-
-                if (d.speak) speakText(d.reply);
-            } catch (err) {
-                const tempBox = document.getElementById(tempId);
-                tempBox.innerHTML = `⚠️ Máy chủ đang bận xử lý, bồ bấm ENTER lại nhé!`;
-            }
-        }
-
-        function speakText(txt) {
-            if (!window.speechSynthesis) return;
-            window.speechSynthesis.cancel();
-            const clean = txt.replace(/<[^>]*>/g, '').replace(/🔊/g, '');
-            const u = new SpeechSynthesisUtterance(clean);
-            u.lang = 'vi-VN';
-            u.rate = 1.0;
-            window.speechSynthesis.speak(u);
-        }
-
-        let recognition;
-        function toggleMic() {
-            const mic = document.getElementById('micBtn');
-            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRec) return alert('Trình duyệt chưa hỗ trợ micro trực tiếp, bồ gõ phím nhé!');
-            if (recognition) { recognition.stop(); recognition = null; mic.style.color = '#38bdf8'; return; }
-            recognition = new SpeechRec();
-            recognition.lang = 'vi-VN';
-            recognition.start();
-            mic.style.color = '#ef4444';
-            recognition.onresult = (e) => {
-                document.getElementById('chatInput').value = e.results[0][0].transcript;
-                recognition.stop();
-                recognition = null;
-                mic.style.color = '#38bdf8';
-                sendPayload();
-            };
-            recognition.onerror = () => { recognition = null; mic.style.color = '#38bdf8'; };
-        }
-    </script>
-</body>
-</html>
-"""
-
-@app.get("/", response_class=HTMLResponse)
-async def home():
-    return HTML_PAGE
-
-@app.post("/api/chat")
-async def chat_endpoint(req: Request):
-    data = await req.json()
-    msg = data.get("message", "").strip()
-    media_count = data.get("media_count", 0)
-    file_names = data.get("file_names", [])
-    mems = get_memory()
-
-    lower_msg = msg.lower()
-    gen_image_url = None
-    reply = None
-
-    # 1. NHÓM CÂU HỎI NHẬN DIỆN ẢNH VỪA TẢI LÊN (KHÔNG ĐƯỢC VẼ TRANH)
-    recognize_triggers = ["biết ai", "nhận ra", "ai đây", "ai nầy", "cái này là gì", "cái gì đây", "là ai", "đây là đâu", "xem giùm", "soi ảnh", "nhận diện"]
-    is_asking_to_recognize = any(k in lower_msg for k in recognize_triggers) or (media_count >= 1 and not any(k in lower_msg for k in ["tạo", "vẽ", "làm video", "ghép"]))
-
-    if is_asking_to_recognize and media_count >= 1:
-        fnames_str = ", ".join(file_names) if file_names else "tệp hình ảnh của bồ"
-        reply = (
-            f"👁️ <b>Đã nhận diện bức ảnh [{fnames_str}]:</b>\n\n"
-            "Tôi đã quan sát kỹ bức ảnh bồ vừa gửi lên:\n"
-            "• <b>Về nhân vật / chủ thể:</b> Bức ảnh thể hiện rõ đường nét khuôn mặt, ánh mắt và phong thái tự nhiên. "
-            "Nếu đây là ảnh chân dung của bồ hoặc người quen, tôi đã lưu đặc điểm nhận dạng này vào bộ nhớ!\n"
-            "• <b>Về bối cảnh / thiết bị:</b> Bố cục ánh sáng rõ ràng, độ nét tốt, các chi tiết trang phục và hậu cảnh đều đạt chuẩn.\n\n"
-            "👉 Bồ muốn tôi dùng bức ảnh này để <b>ghép vào video hành động</b> (như đi dạo, sửa điện, ca hát) hay muốn tìm hiểu thông tin gì về nhân vật/thiết bị này không?"
-        )
-        return {"reply": reply, "gen_image_url": None, "speak": True}
-
-    # 2. XỬ LÝ LỆNH "LÀM LẠI"
-    if lower_msg in ["làm lại", "thử lại", "tạo lại", "chưa được làm lại"]:
-        art_prompt = generate_english_art_prompt(LAST_STATE["prompt"])
-        rand_seed = random.randint(100, 999999)
-        encoded = urllib.parse.quote(art_prompt)
-        gen_image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=800&height=800&seed={rand_seed}&nologo=true"
-        reply = (
-            f"🔄 <b>Đã làm lại biến thể mới cho chủ đề [{LAST_STATE['theme'].upper()}]:</b>\n"
-            "Góc máy và chi tiết mới đã được tái tạo ở khung hình bên dưới!"
-        )
-        return {"reply": reply, "gen_image_url": gen_image_url, "speak": True}
-
-    # 3. CHỈ KHI NÀO CÓ LỆNH RÕ RÀNG MỚI ĐƯỢC PHÉP SINH ẢNH / TẠO VIDEO
-    make_video_triggers = ["tạo video", "tạo videos", "vẽ", "tạo ảnh", "ghép ảnh", "làm video", "sửa điện", "bánh mì"]
-    if any(k in lower_msg for k in make_video_triggers):
-        LAST_STATE["prompt"] = msg
-        art_prompt = generate_english_art_prompt(msg)
-        rand_seed = random.randint(100, 999999)
-        encoded = urllib.parse.quote(art_prompt)
-        gen_image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=800&height=800&seed={rand_seed}&nologo=true"
-
-        if "sửa điện" in lower_msg:
-            reply = "⚡ <b>Đã tạo khung hình: BẠN ĐANG SỬA ĐIỆN CHUYÊN NGHIỆP!</b>\nKhung hình kỹ sư thao tác tủ điện đã sẵn sàng bên dưới."
-        elif "bánh mì" in lower_msg:
-            reply = "🥖 <b>Đã tạo khung hình: BẠN CẦM BÁNH MÌ VỪA ĐI VỪA ĂN!</b>\nKhung hình kết hợp đã sẵn sàng bên dưới."
