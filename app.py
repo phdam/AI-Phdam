@@ -5,13 +5,17 @@ import os
 import re
 import urllib.request
 import urllib.parse
-import random
+import urllib.error
 
-app = FastAPI(title="AI Phdam Gemini Clone")
+app = FastAPI(title="AI Phdam Gemini Master")
 
 CONFIG_FILE = "ai_config.json"
+LAST_STATE = {
+    "last_image": None,
+    "last_msg": ""
+}
 
-def get_api_key():
+def get_saved_key():
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -21,80 +25,81 @@ def get_api_key():
             pass
     return os.environ.get("GEMINI_API_KEY", "").strip()
 
-def save_api_key(key: str):
+def save_key_to_file(key: str):
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump({"gemini_key": key.strip()}, f, ensure_ascii=False, indent=2)
 
 MASTER_PERSONA = (
-    "Bạn là SIÊU NHÂN AI PHDAM - bản sao trí tuệ hoàn hảo của Google Gemini. "
+    "Bạn là SIÊU NHÂN AI PHDAM - Bản sao trí tuệ chuẩn xác của Google Gemini. "
     "Bạn xưng hô thân mật là 'mình' hoặc 'tôi' và gọi người dùng là 'bồ'. "
-    "Bạn sở hữu toàn bộ kho tàng tri thức khổng lồ của nhân loại: khoa học tự nhiên, sinh học động thực vật, cơ điện tử, tự động hóa, biến tần VFD, kỹ thuật và đời sống. "
-    "Phong cách: Siêu thông thái, tư duy logic đa chiều, giải thích bản chất, phân tích ưu nhược điểm, đưa ra giải pháp tối ưu và hướng dẫn từng bước. "
-    "Khi người dùng gửi ảnh: Soi thật kỹ từng pixel, đọc đúng con số, con chữ, nhận dạng chính xác thiết bị, con vật, hiện tượng. Tuyệt đối không trả lời chung chung máy móc."
+    "Bạn sở hữu Mắt Thần thị giác tối tân: Khi người dùng hỏi về ảnh (đặc biệt là con số, chữ in trên đầu dây điện, nhãn cosse, thiết bị máy móc, bảng điện), "
+    "hãy phóng to và soi thật kỹ từng chi tiết nhỏ nhất để đọc CHÍNH XÁC từng chữ số và ký hiệu. "
+    "Tuyệt đối không dùng văn mẫu, thấy số gì nói số đó, giải thích rõ ràng và tận tâm."
 )
 
-def ask_gemini_brain(prompt: str, base64_image: str = None, api_key: str = None):
-    """Gọi trực tiếp siêu não bộ Google Gemini API chính hãng"""
-    key = api_key if api_key else get_api_key()
+def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = None):
+    """Gọi trực tiếp Google Gemini API chính hãng với cấu trúc chuẩn 100%"""
+    key = api_key if api_key else get_saved_key()
     if not key:
-        return None
+        return "CHƯA_CÓ_KEY"
 
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
-        headers = {"Content-Type": "application/json"}
-        
+    clean_b64 = None
+    if base64_image:
+        clean_b64 = re.sub(r'^data:image\/[a-zA-Z]+;base64,', '', base64_image)
+
+    # Thử lần lượt các mô hình Gemini mạnh nhất của Google
+    models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+    last_error_msg = ""
+
+    for model_name in models_to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
         parts = []
-        if base64_image:
-            # Tách header base64 nếu có
-            clean_b64 = re.sub(r'^data:image\/[a-zA-Z]+;base64,', '', base64_image)
+
+        if clean_b64:
             parts.append({
-                "inline_data": {
-                    "mime_type": "image/jpeg",
+                "inlineData": {
+                    "mimeType": "image/jpeg",
                     "data": clean_b64
                 }
             })
-            
-        task_prompt = prompt if prompt else "Hãy quan sát thật kỹ bức ảnh này và phân tích chi tiết bằng tiếng Việt: đọc rõ từng con số, con chữ, linh kiện hoặc đối tượng bạn thấy."
-        parts.append({"text": task_prompt})
+
+        full_prompt = (
+            f"[CHỈ DẪN HỆ THỐNG]: {MASTER_PERSONA}\n\n"
+            f"[CÂU HỎI CỦA BỒ]: {prompt if prompt else 'Hãy soi thật kỹ bức ảnh này và đọc rõ các con số, chữ viết trên dây điện hoặc thiết bị.'}"
+        )
+        parts.append({"text": full_prompt})
 
         payload = {
             "contents": [{"parts": parts}],
-            "system_instruction": {
-                "parts": [{"text": MASTER_PERSONA}]
-            },
             "generationConfig": {
-                "temperature": 0.7,
+                "temperature": 0.2,
                 "maxOutputTokens": 2048
             }
         }
 
-        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=20) as res:
-            res_json = json.loads(res.read().decode("utf-8"))
-            candidates = res_json.get("candidates", [])
-            if candidates:
-                content_parts = candidates[0].get("content", {}).get("parts", [])
-                if content_parts:
-                    return content_parts[0].get("text", "").strip()
-    except Exception as e:
-        print("Gemini API Error:", e)
-        pass
+        try:
+            req = urllib.request.Request(
+                url, 
+                data=json.dumps(payload).encode("utf-8"), 
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=25) as res:
+                res_data = json.loads(res.read().decode("utf-8"))
+                candidates = res_data.get("candidates", [])
+                if candidates:
+                    text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text")
+                    if text_out:
+                        return text_out.strip()
+        except urllib.error.HTTPError as e:
+            err_text = e.read().decode("utf-8", errors="ignore")
+            last_error_msg = f"Mã lỗi Google {e.code}: {err_text[:150]}"
+            continue
+        except Exception as e:
+            last_error_msg = str(e)
+            continue
 
-    return None
-
-def fallback_brain(prompt: str):
-    """Kênh dự phòng nếu chưa cài khóa Gemini"""
-    p_clean = re.sub(r'[\r\n\t]+', ' ', prompt).strip()
-    try:
-        url = f"https://text.pollinations.ai/{urllib.parse.quote(p_clean[:400])}?model=openai"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=8) as res:
-            out = res.read().decode("utf-8").strip()
-            if out and len(out) > 10 and not out.startswith("<"):
-                return out
-    except Exception:
-        pass
-    return None
+    return f"LỖI_GOOGLE: {last_error_msg}"
 
 HTML_PAGE = """
 <!DOCTYPE html>
@@ -102,7 +107,7 @@ HTML_PAGE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Siêu Nhân AI Phdam - Bản Sao Gemini</title>
+    <title>Siêu Nhân AI Phdam - Mắt Thần Gemini</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         
@@ -175,11 +180,17 @@ HTML_PAGE = """
             font-size: 11px;
             cursor: pointer;
         }
-        .btn-key {
-            background: linear-gradient(135deg, #f59e0b, #ef4444);
-            color: #fff;
-            border: none;
+        .btn-key-active {
+            background: linear-gradient(135deg, #10b981, #059669) !important;
+            color: #fff !important;
             font-weight: bold;
+            border: none !important;
+        }
+        .btn-key-pending {
+            background: linear-gradient(135deg, #f59e0b, #ef4444) !important;
+            color: #fff !important;
+            font-weight: bold;
+            border: none !important;
         }
 
         .chat-stream {
@@ -372,18 +383,20 @@ HTML_PAGE = """
         <div class="header">
             <div class="header-title">
                 <h1>⚡ SIÊU NHÂN AI PHDAM</h1>
-                <p>Bản Sao Google Gemini • Mắt Thần Siêu Cấp</p>
+                <p>Mắt Thần Soi Số Đầu Dây • Google Gemini</p>
             </div>
             <div class="header-actions">
-                <button class="btn-tool btn-key" onclick="setupApiKey()">🔑 Cài Não Gemini</button>
+                <button class="btn-tool btn-key-pending" id="keyBtn" onclick="setupApiKey()">🔑 Cài Não Gemini</button>
                 <button class="btn-tool" onclick="document.getElementById('bgInput').click()">🖼️ Đổi nền</button>
             </div>
         </div>
 
         <div class="chat-stream" id="chatStream">
             <div class="msg bot">
-                Chào bồ! Tôi chính là <b>Bản Sao Trí Tuệ của Google Gemini</b>.<br><br>
-                ✨ Để mở khóa 100% năng lực soi ảnh đọc số và tư duy bách khoa y hệt như đang chat với chuyên gia: Bồ bấm vào nút <b>[🔑 Cài Não Gemini]</b> ở góc trên dán mã khóa Google vào là tôi thức tỉnh vĩnh viễn nhé!
+                Chào bồ! Tôi là <b>Siêu Nhân Trí Tuệ Nhân Tạo AI Phdam (Bản Sao Gemini)</b>.<br><br>
+                👁️ <b>ĐÃ KÍCH HOẠT MẮT THẦN SOI ĐẦU DÂY ĐIỆN & CON SỐ:</b><br>
+                • Bồ chỉ cần bấm <b>[+]</b> gửi ảnh đầu dây điện hoặc thiết bị 1 lần duy nhất.<br>
+                • Sau đó hỏi: <i>"Thấy số mấy không?"</i> hoặc <i>"Số trên đầu dây điện là gì?"</i> ➔ Tôi sẽ phóng to điểm ảnh và đọc vanh vách từng con số cho bồ!
                 <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">🔊</button>
             </div>
         </div>
@@ -398,7 +411,7 @@ HTML_PAGE = """
             <label for="fileInput" class="btn-icon-label" title="Chọn ảnh / video">+</label>
             <input type="file" id="fileInput" accept="image/*,video/*" multiple onchange="handleFileSelected(event)">
 
-            <input type="text" id="chatInput" class="chat-input" placeholder="Hỏi bách khoa hoặc gửi ảnh đọc số..." autocomplete="off">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Hỏi số trên đầu dây điện, kỹ thuật..." autocomplete="off">
 
             <button type="button" class="btn-icon" id="micBtn" onclick="toggleMic()" title="Nói">🎙️</button>
             <button type="submit" class="btn-enter" title="Chạy">ENTER ↵</button>
@@ -413,18 +426,38 @@ HTML_PAGE = """
         window.addEventListener('DOMContentLoaded', () => {
             const savedBg = localStorage.getItem('phdam_user_bg');
             if (savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
+            
+            // Tự động kiểm tra và hiển thị trạng thái chìa khóa vĩnh viễn trên máy bồ
+            checkAndSyncKey();
         });
 
+        function checkAndSyncKey() {
+            const savedKey = localStorage.getItem('phdam_gemini_key');
+            const keyBtn = document.getElementById('keyBtn');
+            if (savedKey && savedKey.startsWith('AIza')) {
+                keyBtn.innerText = '✅ Đã Kích Hoạt Não Gemini';
+                keyBtn.className = 'btn-tool btn-key-active';
+            } else {
+                keyBtn.innerText = '🔑 Cài Não Gemini';
+                keyBtn.className = 'btn-tool btn-key-pending';
+            }
+        }
+
         async function setupApiKey() {
-            const current = prompt("Dán mã khóa Google Gemini API (bắt đầu bằng AIza...) vào đây để mở khóa bản sao 100%:");
-            if (!current) return;
-            const res = await fetch('/api/set-key', {
+            const oldKey = localStorage.getItem('phdam_gemini_key') || '';
+            const input = prompt("Dán mã khóa Google Gemini API (bắt đầu bằng AIza...) vào đây:", oldKey);
+            if (!input) return;
+            const cleanKey = input.trim();
+            localStorage.setItem('phdam_gemini_key', cleanKey);
+            checkAndSyncKey();
+
+            await fetch('/api/set-key', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ key: current.trim() })
+                body: JSON.stringify({ key: cleanKey })
             });
-            const d = await res.json();
-            alert("🎉 CHÚC MỪNG BỒ! Siêu Não Bộ Google Gemini đã được kích hoạt thành công trên web của bồ!");
+
+            alert("🎉 ĐÃ KÍCH HOẠT VĨNH VIỄN! Bản sao Google Gemini đã sẵn sàng soi số cho bồ!");
         }
 
         function changeBackground(e) {
@@ -473,7 +506,7 @@ HTML_PAGE = """
                     };
                     reader.readAsDataURL(f);
                 } else {
-                    compressImage(f, 800, 0.75, (compressedDataUrl) => {
+                    compressImage(f, 900, 0.8, (compressedDataUrl) => {
                         currentAttachments.push({ name: f.name, dataUrl: compressedDataUrl, isVideo: false });
                         renderPreviewChips();
                     });
@@ -535,13 +568,14 @@ HTML_PAGE = """
             const firstImage = currentAttachments.find(a => !a.isVideo);
             const firstImageDataUrl = firstImage ? firstImage.dataUrl : null;
             const sentCount = currentAttachments.length;
+            const userKey = localStorage.getItem('phdam_gemini_key') || '';
 
             currentAttachments = [];
             renderPreviewChips();
             inp.value = '';
 
             const tempId = 'bot_temp_' + Date.now();
-            stream.innerHTML += `<div class="msg bot" id="${tempId}">⚡ Bản Sao Gemini đang vận hành kho tri thức phân tích...</div>`;
+            stream.innerHTML += `<div class="msg bot" id="${tempId}">👁️ Mắt Thần Gemini đang phóng to đầu dây để đọc số...</div>`;
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
             try {
@@ -551,6 +585,7 @@ HTML_PAGE = """
                     body: JSON.stringify({
                         message: text,
                         image_data: firstImageDataUrl,
+                        api_key: userKey,
                         media_count: sentCount
                     })
                 });
@@ -606,9 +641,10 @@ async def home():
     return HTML_PAGE
 
 @app.post("/api/set-key")
-async def set_key(req: Request):
+async def set_key_endpoint(req: Request):
     data = await req.json()
-    save_api_key(data.get("key", ""))
+    key = data.get("key", "").strip()
+    save_key_to_file(key)
     return {"status": "success"}
 
 @app.post("/api/chat")
@@ -616,41 +652,30 @@ async def chat_endpoint(req: Request):
     data = await req.json()
     msg = data.get("message", "").strip()
     image_data = data.get("image_data")
+    client_api_key = data.get("api_key", "").strip()
 
-    # 1. GỌI SIÊU NÃO GOOGLE GEMINI CHÍNH HÃNG (BẢN SAO 100%)
-    gemini_reply = ask_gemini_brain(msg, image_data)
-    if gemini_reply:
-        return {"reply": gemini_reply, "speak": True}
+    # Lưu lại ảnh vào bộ nhớ tạm để nếu câu sau người dùng hỏi tiếp về ảnh thì AI vẫn nhớ!
+    if image_data:
+        LAST_STATE["last_image"] = image_data
+    elif LAST_STATE["last_image"] and any(w in msg.lower() for w in ["số", "thấy", "dây", "ảnh", "hình", "mấy", "đầu dây", "này"]):
+        image_data = LAST_STATE["last_image"]
 
-    # 2. NẾU CHƯA CÀI KEY ➔ DÙNG BỘ NÃO TỰ THÂN CHUYÊN SÂU
-    m = msg.lower()
-    if any(k in m for k in ["tốc độ", "rpm", "nhanh chậm"]):
-        reply = (
-            "⚡ <b>PHÂN TÍCH TỐC ĐỘ ĐỘNG CƠ & MÁY MÓC:</b><br><br>"
-            "• <b>Tốc độ chuẩn:</b> Motor 3 pha 4 cực chạy ở 50Hz đạt ~1450 vòng/phút. Qua hộp số giảm tốc sẽ cho tốc độ kéo tải ổn định.<br>"
-            "• <b>Đánh giá:</b> Tốc độ ổn định khi tần số dao động không quá ±0.2Hz, dòng Ampe không nhảy vọt. Nếu motor rung gắt hoặc phát tiếng rít, cần kiểm tra lại bạc đạn và thông số bù mô-men xoắn trên biến tần!"
-        )
-    elif any(k in m for k in ["nguyên lý", "nguyen ly"]):
-        reply = (
-            "⚙️ <b>NGUYÊN LÝ HOẠT ĐỘNG CỐT LÕI:</b><br><br>"
-            "Dòng điện 3 pha tạo từ trường quay trong Stator, cảm ứng lực điện từ Lorentz làm quay Rotor. Tốc độ được biến tần điều biến mượt mà theo công thức n = 60f/p, vừa bảo vệ chống giật cơ khí vừa tối ưu hóa điện năng tiêu thụ."
-        )
-    elif any(k in m for k in ["tất cả", "tất cả đi", "phân tích hết"]):
-        reply = (
-            "🌐 <b>TỔNG QUAN TẤT CẢ TỪ A ĐẾN Z:</b><br><br>"
-            "• <b>1. Bản chất:</b> Hệ thống máy truyền động tự động hóa tối tân.<br>"
-            "• <b>2. Ưu điểm:</b> Tiết kiệm điện, khởi động êm, kiểm soát tốc độ chính xác.<br>"
-            "• <b>3. Nhược điểm:</b> Sinh nhiệt cao khi chạy chậm, cần thông gió tốt.<br>"
-            "• <b>4. Giải pháp tối ưu:</b> Cài đặt tần số trong dải an toàn 25 – 50Hz, gắn thêm quạt cưỡng bức nếu làm việc liên tục 24/7!"
-        )
-    else:
-        alt = fallback_brain(msg)
-        if alt:
-            reply = alt
-        else:
-            reply = (
-                f"💡 <b>Về vấn đề '{msg}':</b><br>"
-                "Bồ bấm vào nút màu cam <b>[🔑 Cài Não Gemini]</b> ở góc trên để dán mã khóa Google vào nhé! Khi có chìa khóa, tôi sẽ trở thành bản sao 100% của Gemini, nhìn thấu từng con số và trả lời xuất sắc mọi câu hỏi!"
-            )
+    # 1. GỌI SIÊU NÃO GOOGLE GEMINI CHÍNH HÃNG
+    gemini_out = call_google_gemini(msg, image_data, client_api_key)
 
-    return {"reply": reply, "speak": True}
+    if gemini_out == "CHƯA_CÓ_KEY":
+        reply = (
+            "🔑 <b>Bồ chưa cài chìa khóa não bộ Google Gemini!</b><br><br>"
+            "Bồ bấm vào nút màu cam <b>[🔑 Cài Não Gemini]</b> ở góc trên màn hình, dán mã khóa bắt đầu bằng chữ <code>AIza...</code> vào là Mắt Thần sẽ lập tức soi đầu dây điện và đọc số cho bồ ngay!"
+        )
+        return {"reply": reply, "speak": True}
+
+    if gemini_out.startswith("LỖI_GOOGLE:"):
+        reply = (
+            f"⚠️ <b>Google thông báo:</b> {gemini_out.replace('LỖI_GOOGLE:', '')}<br><br>"
+            "Bồ kiểm tra lại xem mã khóa API đã copy đủ ký tự từ đầu <code>AIza...</code> đến chữ cuối cùng chưa nhé!"
+        )
+        return {"reply": reply, "speak": True}
+
+    # Trả về câu trả lời phân tích thực tế từ Mắt Thần Gemini
+    return {"reply": gemini_out, "speak": True}
