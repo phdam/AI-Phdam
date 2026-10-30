@@ -1,0 +1,44 @@
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+
+app = FastAPI(title="AI Phdam")
+
+HTML_CONTENT = """
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Phdam</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f0f4f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); text-align: center; max-width: 400px; width: 100%; }
+        h1 { color: #2563eb; margin-bottom: 8px; font-size: 24px; }
+        p { color: #64748b; font-size: 15px; }
+        button { background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; width: 100%; }
+        #status { margin-top: 18px; font-weight: bold; color: #16a34a; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🚀 AI Phdam</h1>
+        <p>Ứng dụng đã triển khai thành công 100%!</p>
+        <button onclick="check()">Kiểm tra hệ thống</button>
+        <div id="status"></div>
+    </div>
+    <script>
+        function check() {
+            document.getElementById('status').innerText = '✅ Hệ thống AI đang hoạt động ổn định!';
+        }
+    </script>
+</body>
+</html>
+"""
+
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    return HTML_CONTENT
+
+@app.get("/ping")
+async def ping():
+    return {"status": "ok", "message": "AI Phdam is running!"}
