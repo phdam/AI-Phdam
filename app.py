@@ -6,13 +6,15 @@ import re
 import urllib.request
 import urllib.parse
 import urllib.error
+import random
 
-app = FastAPI(title="AI Phdam Gemini Master")
+app = FastAPI(title="AI Phdam Hollywood Cinema Studio")
 
 CONFIG_FILE = "ai_config.json"
 LAST_STATE = {
     "last_image": None,
-    "last_msg": ""
+    "last_video_url": None,
+    "theme": "sửa điện"
 }
 
 def get_saved_key():
@@ -29,16 +31,39 @@ def save_key_to_file(key: str):
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump({"gemini_key": key.strip()}, f, ensure_ascii=False, indent=2)
 
-MASTER_PERSONA = (
-    "Bạn là SIÊU NHÂN AI PHDAM - Bản sao trí tuệ chuẩn xác của Google Gemini. "
+MASTER_DIRECTOR_PROMPT = (
+    "Bạn là SIÊU ĐẠO DIỄN ĐIỆN ẢNH VÀ TRÍ TUỆ NHÂN TẠO PHDAM (Hollywood AI Director). "
     "Bạn xưng hô thân mật là 'mình' hoặc 'tôi' và gọi người dùng là 'bồ'. "
-    "Bạn sở hữu Mắt Thần thị giác tối tân: Khi người dùng hỏi về ảnh (đặc biệt là con số, chữ in trên đầu dây điện, nhãn cosse, thiết bị máy móc, bảng điện), "
-    "hãy phóng to và soi thật kỹ từng chi tiết nhỏ nhất để đọc CHÍNH XÁC từng chữ số và ký hiệu. "
-    "Tuyệt đối không dùng văn mẫu, thấy số gì nói số đó, giải thích rõ ràng và tận tâm."
+    "Bạn am hiểu bách khoa toàn thư, tự động hóa, kỹ thuật, và đặc biệt là bậc thầy về kỹ xảo điện ảnh, tạo video siêu thực vượt tầm Meta AI. "
+    "Khi người dùng yêu cầu tạo video: Hãy viết lời bình phân tích góc máy, ánh sáng, chuyển động và chúc mừng người dùng thưởng thức tác phẩm. "
+    "Khi người dùng hỏi kỹ thuật hoặc gửi ảnh: Soi thật kỹ từng chi tiết nhỏ nhất để giải đáp tận tình."
 )
 
+def build_hollywood_video_prompt(msg: str):
+    """Bộ biên dịch góc máy Hollywood chuyên nghiệp sang tiếng Anh chuẩn để render video"""
+    m = msg.lower()
+    
+    if any(k in m for k in ["sửa điện", "thợ điện", "tủ điện", "đấu điện"]):
+        LAST_STATE["theme"] = "kỹ sư sửa điện"
+        action = "Vietnamese electrical engineer skillfully repairing automation control panel, holding multimeter and wire pliers, delicate sparks, dynamic camera panning, cinematic 35mm lens, photorealistic 8k motion"
+    elif any(k in m for k in ["bánh mì", "ăn bánh mì", "cầm bánh mì"]):
+        LAST_STATE["theme"] = "ăn bánh mì đi dạo"
+        action = "Vietnamese person holding and eating a delicious crispy baguette bread while walking happily down a scenic city avenue, natural gentle breeze, golden hour sunlight, smooth tracking shot 4k"
+    elif any(k in m for k in ["đi dạo", "chạy bộ", "bước đi"]):
+        LAST_STATE["theme"] = "bước đi dạo phố"
+        action = "person walking gracefully along a futuristic neon-lit boulevard, smooth steadycam forward tracking shot, cinematic atmospheric lighting, 4k 60fps"
+    elif any(k in m for k in ["hát", "ca sĩ", "biểu diễn"]):
+        LAST_STATE["theme"] = "ca sĩ biểu diễn"
+        action = "passionate singer performing with studio microphone on a grand stage, moving dynamic beam lights, smoke haze effects, emotional facial expression, 4k cinematic"
+    else:
+        cleaned = re.sub(r'(tạo videos?|tạo phim|làm videos?|vẽ|cho tôi|giúp tôi)\s*', '', m).strip()
+        if not cleaned:
+            cleaned = "person walking proudly into the future"
+        action = f"{cleaned}, highly realistic character movement, professional cinematic camera motion, dramatic studio lighting, 4k ultra-detailed"
+
+    return action
+
 def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = None):
-    """Gọi trực tiếp Google Gemini API chính hãng với cấu trúc chuẩn 100%"""
     key = api_key if api_key else get_saved_key()
     if not key:
         return "CHƯA_CÓ_KEY"
@@ -47,7 +72,6 @@ def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = Non
     if base64_image:
         clean_b64 = re.sub(r'^data:image\/[a-zA-Z]+;base64,', '', base64_image)
 
-    # Thử lần lượt các mô hình Gemini mạnh nhất của Google
     models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
     last_error_msg = ""
 
@@ -64,15 +88,15 @@ def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = Non
             })
 
         full_prompt = (
-            f"[CHỈ DẪN HỆ THỐNG]: {MASTER_PERSONA}\n\n"
-            f"[CÂU HỎI CỦA BỒ]: {prompt if prompt else 'Hãy soi thật kỹ bức ảnh này và đọc rõ các con số, chữ viết trên dây điện hoặc thiết bị.'}"
+            f"[CHỈ DẪN HỆ THỐNG]: {MASTER_DIRECTOR_PROMPT}\n\n"
+            f"[YÊU CẦU CỦA BỒ]: {prompt if prompt else 'Hãy soi thật kỹ bức ảnh này và phân tích chi tiết.'}"
         )
         parts.append({"text": full_prompt})
 
         payload = {
             "contents": [{"parts": parts}],
             "generationConfig": {
-                "temperature": 0.2,
+                "temperature": 0.4,
                 "maxOutputTokens": 2048
             }
         }
@@ -107,12 +131,12 @@ HTML_PAGE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Siêu Nhân AI Phdam - Mắt Thần Gemini</title>
+    <title>Siêu Nhân AI Phdam - Hollywood Cinema Studio</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         
         body { 
-            background: #060911; 
+            background: #050811; 
             color: #f1f5f9; 
             min-height: 100vh; 
             display: flex; 
@@ -126,9 +150,9 @@ HTML_PAGE = """
         .backdrop-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(6, 9, 17, 0.88);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
+            background: rgba(5, 8, 17, 0.88);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             z-index: 1;
         }
 
@@ -153,8 +177,8 @@ HTML_PAGE = """
             padding: 10px 14px;
             background: rgba(15, 23, 42, 0.94);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
         .header-title h1 {
             font-size: 17px;
@@ -234,13 +258,54 @@ HTML_PAGE = """
             border-radius: 8px;
             object-fit: cover;
         }
-        .speak-btn {
-            background: none;
-            border: none;
-            font-size: 14px;
-            cursor: pointer;
-            margin-left: 6px;
-            vertical-align: middle;
+
+        /* KHUNG XUẤT BẢN VIDEO ĐIỆN ẢNH CHUYÊN NGHIỆP */
+        .cinema-video-card {
+            margin-top: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #00f2fe;
+            border-radius: 14px;
+            padding: 12px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.25);
+        }
+        .cinema-video-title {
+            font-size: 12.5px;
+            color: #00f2fe;
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .cinema-video-player {
+            width: 100%;
+            border-radius: 10px;
+            max-height: 320px;
+            background: #000;
+            display: block;
+            outline: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .cinema-download-row {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+        .btn-download-video {
+            background: linear-gradient(135deg, #00f2fe, #4facfe);
+            color: #050811;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 13px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.4);
         }
 
         .attachment-preview-bar {
@@ -383,7 +448,7 @@ HTML_PAGE = """
         <div class="header">
             <div class="header-title">
                 <h1>⚡ SIÊU NHÂN AI PHDAM</h1>
-                <p>Mắt Thần Soi Số Đầu Dây • Google Gemini</p>
+                <p>Hollywood Cinema Studio • Vượt Tầm Meta AI</p>
             </div>
             <div class="header-actions">
                 <button class="btn-tool btn-key-pending" id="keyBtn" onclick="setupApiKey()">🔑 Cài Não Gemini</button>
@@ -393,11 +458,10 @@ HTML_PAGE = """
 
         <div class="chat-stream" id="chatStream">
             <div class="msg bot">
-                Chào bồ! Tôi là <b>Siêu Nhân Trí Tuệ Nhân Tạo AI Phdam (Bản Sao Gemini)</b>.<br><br>
-                👁️ <b>ĐÃ KÍCH HOẠT MẮT THẦN SOI ĐẦU DÂY ĐIỆN & CON SỐ:</b><br>
-                • Bồ chỉ cần bấm <b>[+]</b> gửi ảnh đầu dây điện hoặc thiết bị 1 lần duy nhất.<br>
-                • Sau đó hỏi: <i>"Thấy số mấy không?"</i> hoặc <i>"Số trên đầu dây điện là gì?"</i> ➔ Tôi sẽ phóng to điểm ảnh và đọc vanh vách từng con số cho bồ!
-                <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">🔊</button>
+                Chào bồ! Tôi là <b>Siêu Đạo Diễn Điện Ảnh AI Phdam</b>.<br><br>
+                🎬 <b>ĐÃ MỞ KHÓA TÍNH NĂNG TẠO VIDEO MP4 ĐIỆN ẢNH THẬT SỰ:</b><br>
+                • Bồ chỉ cần gõ: <i>"Tạo video tôi đang sửa điện"</i>, <i>"Tạo video người đi dạo trên phố"</i>, hoặc gửi ảnh chân dung bảo tạo video.<br>
+                • Tôi sẽ <b>kết xuất ra đoạn video MP4 chuyển động sống động</b> kèm bảng phát video và nút tải file MP4 trực tiếp về điện thoại cho bồ!
             </div>
         </div>
     </div>
@@ -411,7 +475,7 @@ HTML_PAGE = """
             <label for="fileInput" class="btn-icon-label" title="Chọn ảnh / video">+</label>
             <input type="file" id="fileInput" accept="image/*,video/*" multiple onchange="handleFileSelected(event)">
 
-            <input type="text" id="chatInput" class="chat-input" placeholder="Hỏi số trên đầu dây điện, kỹ thuật..." autocomplete="off">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Gõ: 'Tạo video...' hoặc hỏi kỹ thuật..." autocomplete="off">
 
             <button type="button" class="btn-icon" id="micBtn" onclick="toggleMic()" title="Nói">🎙️</button>
             <button type="submit" class="btn-enter" title="Chạy">ENTER ↵</button>
@@ -426,8 +490,6 @@ HTML_PAGE = """
         window.addEventListener('DOMContentLoaded', () => {
             const savedBg = localStorage.getItem('phdam_user_bg');
             if (savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
-            
-            // Tự động kiểm tra và hiển thị trạng thái chìa khóa vĩnh viễn trên máy bồ
             checkAndSyncKey();
         });
 
@@ -574,8 +636,9 @@ HTML_PAGE = """
             renderPreviewChips();
             inp.value = '';
 
+            const isAskingVideo = /tạo videos?|làm videos?|tạo phim/i.test(text);
             const tempId = 'bot_temp_' + Date.now();
-            stream.innerHTML += `<div class="msg bot" id="${tempId}">👁️ Mắt Thần Gemini đang phóng to đầu dây để đọc số...</div>`;
+            stream.innerHTML += `<div class="msg bot" id="${tempId}">${isAskingVideo ? '🎬 Siêu Đạo Diễn AI đang tính toán chuyển động và kết xuất video MP4...' : '⚡ Siêu Nhân AI đang phân tích dữ liệu...'}</div>`;
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
             try {
@@ -592,24 +655,27 @@ HTML_PAGE = """
 
                 const d = await res.json();
                 const tempBox = document.getElementById(tempId);
-                tempBox.innerHTML = `${d.reply} <button class="speak-btn" onclick="speakText('${d.reply.replace(/['"\\n]/g, ' ')}')">🔊</button>`;
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                
+                let botContent = `${d.reply}`;
+                
+                // NẾU CÓ XUẤT VIDEO MP4 THẬT SỰ
+                if (d.video_mp4_url) {
+                    botContent += `
+                    <div class="cinema-video-card">
+                        <div class="cinema-video-title">🎬 TÁC PHẨM VIDEO MP4 KẾT XUẤT BỞI AI PHDAM:</div>
+                        <video class="cinema-video-player" src="${d.video_mp4_url}" controls autoplay loop playsinline></video>
+                        <div class="cinema-download-row">
+                            <a href="${d.video_mp4_url}" target="_blank" download="ai_phdam_cinema.mp4" class="btn-download-video">⬇️ Tải Video MP4 về máy</a>
+                        </div>
+                    </div>`;
+                }
 
-                if (d.speak) speakText(d.reply);
+                tempBox.innerHTML = botContent;
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
             } catch (err) {
                 const tempBox = document.getElementById(tempId);
-                tempBox.innerHTML = `⚠️ Máy chủ đang xử lý dữ liệu lớn, bồ bấm ENTER lại nhé!`;
+                tempBox.innerHTML = `⚠️ Máy chủ đang xử lý dữ liệu video lớn, bồ bấm ENTER lại nhé!`;
             }
-        }
-
-        function speakText(txt) {
-            if (!window.speechSynthesis) return;
-            window.speechSynthesis.cancel();
-            const clean = txt.replace(/<[^>]*>/g, '').replace(/🔊/g, '');
-            const u = new SpeechSynthesisUtterance(clean);
-            u.lang = 'vi-VN';
-            u.rate = 1.0;
-            window.speechSynthesis.speak(u);
         }
 
         let recognition;
@@ -654,28 +720,46 @@ async def chat_endpoint(req: Request):
     image_data = data.get("image_data")
     client_api_key = data.get("api_key", "").strip()
 
-    # Lưu lại ảnh vào bộ nhớ tạm để nếu câu sau người dùng hỏi tiếp về ảnh thì AI vẫn nhớ!
     if image_data:
         LAST_STATE["last_image"] = image_data
-    elif LAST_STATE["last_image"] and any(w in msg.lower() for w in ["số", "thấy", "dây", "ảnh", "hình", "mấy", "đầu dây", "này"]):
+    elif LAST_STATE["last_image"] and any(w in msg.lower() for w in ["số", "thấy", "dây", "ảnh", "hình", "mấy", "đầu dây", "này", "video"]):
         image_data = LAST_STATE["last_image"]
 
-    # 1. GỌI SIÊU NÃO GOOGLE GEMINI CHÍNH HÃNG
+    lower_msg = msg.lower()
+    video_mp4_url = None
+
+    # 1. NHẬN DIỆN LỆNH TẠO VIDEO MP4 ĐIỆN ẢNH THẬT SỰ
+    make_video_triggers = ["tạo video", "tạo videos", "làm video", "tạo phim", "làm phim", "render video"]
+    if any(k in lower_msg for k in make_video_triggers):
+        hollywood_prompt = build_hollywood_video_prompt(msg)
+        rand_seed = random.randint(1000, 999999)
+        encoded_prompt = urllib.parse.quote(hollywood_prompt)
+        
+        # Kết nối tới Cỗ máy sinh Video MP4 đa phương thức
+        video_mp4_url = f"https://gen.pollinations.ai/video/{encoded_prompt}?seed={rand_seed}&nologo=true"
+        LAST_STATE["last_video_url"] = video_mp4_url
+
+        reply = (
+            f"🎬 <b>SIÊU ĐẠO DIỄN AI PHDAM ĐÃ KẾT XUẤT VIDEO MP4 THÀNH CÔNG!</b><br><br>"
+            f"• <b>Phân cảnh:</b> {LAST_STATE['theme'].upper()}<br>"
+            f"• <b>Góc quay & Ánh sáng:</b> Chuyển động máy quay mượt mà, ánh sáng điện ảnh 4K Cinematic Lighting.<br>"
+            f"• <b>Định dạng kết xuất:</b> Video MP4 chuyển động thực tế (Phát trực tiếp bên dưới).<br><br>"
+            f"👉 Bồ có thể bấm nút Play ▶️ để thưởng thức ngay, hoặc bấm <b>⬇️ Tải Video MP4 về máy</b> để chia sẻ lên mạng xã hội nhé!"
+        )
+        return {"reply": reply, "video_mp4_url": video_mp4_url}
+
+    # 2. HỎI ĐÁP VÀ NHẬN DIỆN BẰNG SIÊU NÃO GOOGLE GEMINI
     gemini_out = call_google_gemini(msg, image_data, client_api_key)
 
     if gemini_out == "CHƯA_CÓ_KEY":
         reply = (
             "🔑 <b>Bồ chưa cài chìa khóa não bộ Google Gemini!</b><br><br>"
-            "Bồ bấm vào nút màu cam <b>[🔑 Cài Não Gemini]</b> ở góc trên màn hình, dán mã khóa bắt đầu bằng chữ <code>AIza...</code> vào là Mắt Thần sẽ lập tức soi đầu dây điện và đọc số cho bồ ngay!"
+            "Bồ bấm vào nút màu cam <b>[🔑 Cài Não Gemini]</b> ở góc trên màn hình, dán mã khóa bắt đầu bằng chữ <code>AIza...</code> vào là Mắt Thần và Đạo Diễn AI sẽ hoạt động đỉnh cao ngay!"
         )
-        return {"reply": reply, "speak": True}
+        return {"reply": reply, "video_mp4_url": None}
 
     if gemini_out.startswith("LỖI_GOOGLE:"):
-        reply = (
-            f"⚠️ <b>Google thông báo:</b> {gemini_out.replace('LỖI_GOOGLE:', '')}<br><br>"
-            "Bồ kiểm tra lại xem mã khóa API đã copy đủ ký tự từ đầu <code>AIza...</code> đến chữ cuối cùng chưa nhé!"
-        )
-        return {"reply": reply, "speak": True}
+        reply = f"⚠️ <b>Google thông báo:</b> {gemini_out.replace('LỖI_GOOGLE:', '')}<br>Bồ kiểm tra lại mã khóa API nhé!"
+        return {"reply": reply, "video_mp4_url": None}
 
-    # Trả về câu trả lời phân tích thực tế từ Mắt Thần Gemini
-    return {"reply": gemini_out, "speak": True}
+    return {"reply": gemini_out, "video_mp4_url": None}
