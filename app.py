@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 import json
 import os
 import re
@@ -7,10 +7,12 @@ import urllib.request
 import urllib.parse
 import urllib.error
 import random
+from datetime import datetime
 
-app = FastAPI(title="AI Phdam Hollywood Cinema Studio")
+app = FastAPI(title="AI Phdam Self-Learning Vault")
 
 CONFIG_FILE = "ai_config.json"
+VAULT_FILE = "ai_private_vault.json"
 LAST_STATE = {
     "last_image": None,
     "last_video_url": None,
@@ -33,36 +35,75 @@ def save_key_to_file(key: str):
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump({"gemini_key": key.strip()}, f, ensure_ascii=False, indent=2)
 
+def get_vault():
+    if os.path.exists(VAULT_FILE):
+        try:
+            with open(VAULT_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return [
+        {
+            "id": 1,
+            "query": "nguyên lý biến tần vfd",
+            "answer": "Biến tần (VFD) biến đổi tần số dòng điện để điều khiển tốc độ động cơ 3 pha vô cấp, bảo vệ quá dòng, chống sốc cơ khí và tiết kiệm 20-40% điện năng.",
+            "date": "2026-10-31"
+        }
+    ]
+
+def save_to_vault(query: str, answer: str):
+    """Tự động lưu trữ bài học mới vào Két Sắt Tri Thức Riêng"""
+    if not query or not answer or len(answer) < 30 or "LỖI" in answer or "CHƯA_CÓ_KEY" in answer:
+        return
+    vault = get_vault()
+    # Kiểm tra trùng lặp
+    for item in vault:
+        if query.lower() in item.get("query", "").lower():
+            return
+    new_entry = {
+        "id": len(vault) + 1,
+        "query": query.strip(),
+        "answer": answer.strip(),
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
+    vault.append(new_entry)
+    with open(VAULT_FILE, "w", encoding="utf-8") as f:
+        json.dump(vault, f, ensure_ascii=False, indent=2)
+
+def search_local_vault(query: str):
+    """Tìm kiếm trong kho tri thức tự thân trước khi gọi Google"""
+    q_clean = query.lower().strip()
+    vault = get_vault()
+    for item in vault:
+        q_stored = item.get("query", "").lower()
+        if q_clean == q_stored or (len(q_clean) > 8 and q_clean in q_stored):
+            return item.get("answer")
+    return None
+
 MASTER_DIRECTOR_PROMPT = (
-    "Bạn là SIÊU ĐẠO DIỄN ĐIỆN ẢNH VÀ TRÍ TUỆ NHÂN TẠO PHDAM (Bản sao tối thượng của Google Gemini). "
-    "Bạn xưng hô thân mật là 'mình' hoặc 'tôi' và gọi người dùng là 'bồ'. "
-    "Bạn là chuyên gia hàng đầu về: Tự động hóa, Cơ điện tử, Đấu nối dây điện, Biến tần VFD, Đọc số đầu cosse dây điện, cùng kỹ xảo video điện ảnh Hollywood. "
-    "Khi người dùng hỏi 'đấu dây sao', 'số mấy', 'sửa điện': Hãy quan sát thật kỹ bức ảnh, chỉ rõ từng chân cắm, ký hiệu cổng (L, N, U, V, W, chân kích chạy, chân biến trở) và hướng dẫn chi tiết cách đấu nối an toàn tuyệt đối. "
-    "Phong thái: Siêu thông thái, tận tâm, thực tế, đúng chất kỹ sư trưởng đồng hành cùng bồ."
+    "Bạn là SIÊU ĐẠO DIỄN VÀ TRÍ TUỆ NHÂN TẠO PHDAM (Thầy giáo cố vấn tối cao của hệ thống). "
+    "Bạn xưng hô là 'mình' hoặc 'tôi' và gọi người dùng là 'bồ'. "
+    "Bạn am hiểu bách khoa toàn thư, tự động hóa, điện công nghiệp, biến tần, kỹ thuật đấu dây và tạo video. "
+    "Hãy trả lời chuẩn xác, có cấu trúc logic (Bản chất ➔ Phân tích ➔ Hướng dẫn từng bước) vì mỗi câu trả lời của bạn sẽ được AI Phdam lưu vào Két Sắt Tri Thức để tự học vĩnh viễn!"
 )
 
 def auto_detect_gemini_model(api_key: str):
-    """Tự động hỏi Google xem tài khoản này đang mở những model Gemini nào để chọn chuẩn 100%"""
     global AVAILABLE_MODEL
     if AVAILABLE_MODEL:
         return AVAILABLE_MODEL
 
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
-        req = urllib.request.Request(url, headers={"User-Agent": "AI-Phdam/ModelDetector"})
+        req = urllib.request.Request(url, headers={"User-Agent": "AI-Phdam/VaultModelDetector"})
         with urllib.request.urlopen(req, timeout=6) as res:
             data = json.loads(res.read().decode("utf-8"))
             models = data.get("models", [])
-            
-            # Ưu tiên tìm các dòng Flash mới nhất có hỗ trợ generateContent
             for m in models:
                 if "generateContent" in m.get("supportedGenerationMethods", []):
                     name = m.get("name", "").replace("models/", "")
                     if "flash" in name and "image" not in name:
                         AVAILABLE_MODEL = name
                         return AVAILABLE_MODEL
-            
-            # Nếu không có flash, lấy model bất kỳ hỗ trợ generateContent
             for m in models:
                 if "generateContent" in m.get("supportedGenerationMethods", []):
                     AVAILABLE_MODEL = m.get("name", "").replace("models/", "")
@@ -81,10 +122,8 @@ def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = Non
     if base64_image:
         clean_b64 = re.sub(r'^data:image\/[a-zA-Z]+;base64,', '', base64_image)
 
-    # Tự động phát hiện model Google hỗ trợ
     detected_model = auto_detect_gemini_model(key)
     models_to_try = [detected_model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-pro"]
-    # Loại bỏ trùng lặp giữ nguyên thứ tự
     models_to_try = list(dict.fromkeys(models_to_try))
 
     last_error_msg = ""
@@ -128,12 +167,12 @@ def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = Non
                 if candidates:
                     text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text")
                     if text_out:
-                        AVAILABLE_MODEL = model_name  # Ghi nhớ model đã chạy thành công
+                        AVAILABLE_MODEL = model_name
                         return text_out.strip()
         except urllib.error.HTTPError as e:
             err_text = e.read().decode("utf-8", errors="ignore")
             last_error_msg = f"Mã lỗi Google {e.code}: {err_text[:150]}"
-            continue  # Nếu gặp 404, lập tức thử ngay model tiếp theo
+            continue
         except Exception as e:
             last_error_msg = str(e)
             continue
@@ -144,13 +183,13 @@ def build_hollywood_video_prompt(msg: str):
     m = msg.lower()
     if any(k in m for k in ["sửa điện", "thợ điện", "tủ điện", "đấu điện"]):
         LAST_STATE["theme"] = "kỹ sư sửa điện"
-        action = "Vietnamese electrical engineer skillfully repairing automation control panel, holding multimeter and wire pliers, delicate sparks, dynamic camera panning, cinematic 35mm lens, photorealistic 8k motion"
+        action = "Vietnamese electrical engineer repairing automation cabinet with tools, cinematic 35mm lens, 4k 60fps"
     elif any(k in m for k in ["bánh mì", "ăn bánh mì"]):
         LAST_STATE["theme"] = "ăn bánh mì đi dạo"
-        action = "Vietnamese person holding and eating a delicious crispy baguette bread while walking happily down a scenic city avenue, natural gentle breeze, golden hour sunlight, smooth tracking shot 4k"
+        action = "Vietnamese person holding and eating a crispy baguette bread walking happily down a scenic city avenue, golden hour lighting, 4k"
     else:
         cleaned = re.sub(r'(tạo videos?|tạo phim|làm videos?|vẽ|cho tôi|giúp tôi)\s*', '', m).strip()
-        action = f"{cleaned if cleaned else 'person walking into the future'}, highly realistic character movement, professional cinematic camera motion, dramatic studio lighting, 4k ultra-detailed"
+        action = f"{cleaned if cleaned else 'person walking into future'}, highly realistic movement, cinematic 4k"
     return action
 
 HTML_PAGE = """
@@ -159,7 +198,7 @@ HTML_PAGE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Siêu Nhân AI Phdam - Hollywood Cinema Studio</title>
+    <title>Siêu Nhân AI Phdam - Két Sắt Tri Thức Tự Lập</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         
@@ -221,16 +260,22 @@ HTML_PAGE = """
         }
         .header-actions {
             display: flex;
-            gap: 6px;
+            gap: 5px;
         }
         .btn-tool {
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.15);
             color: #e2e8f0;
-            padding: 5px 9px;
+            padding: 5px 8px;
             border-radius: 8px;
             font-size: 11px;
             cursor: pointer;
+        }
+        .btn-vault {
+            background: linear-gradient(135deg, #a855f7, #6366f1) !important;
+            color: #fff !important;
+            font-weight: bold;
+            border: none !important;
         }
         .btn-key-active {
             background: linear-gradient(135deg, #10b981, #059669) !important;
@@ -301,10 +346,6 @@ HTML_PAGE = """
             color: #00f2fe;
             font-weight: bold;
             margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
         }
         .cinema-video-player {
             width: 100%;
@@ -312,8 +353,6 @@ HTML_PAGE = """
             max-height: 320px;
             background: #000;
             display: block;
-            outline: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
         .cinema-download-row {
             margin-top: 10px;
@@ -332,7 +371,6 @@ HTML_PAGE = """
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            box-shadow: 0 0 10px rgba(0, 242, 254, 0.4);
         }
 
         .attachment-preview-bar {
@@ -475,20 +513,20 @@ HTML_PAGE = """
         <div class="header">
             <div class="header-title">
                 <h1>⚡ SIÊU NHÂN AI PHDAM</h1>
-                <p>Google Gemini Tự Động Định Tuyến • Hollywood Studio</p>
+                <p>Tự Lập • Hấp Thụ Tri Thức • Cinema Studio</p>
             </div>
             <div class="header-actions">
-                <button class="btn-tool btn-key-pending" id="keyBtn" onclick="setupApiKey()">🔑 Cài Não Gemini</button>
-                <button class="btn-tool" onclick="document.getElementById('bgInput').click()">🖼️ Đổi nền</button>
+                <button class="btn-tool btn-vault" id="vaultBtn" onclick="downloadBrainBackup()" title="Tải toàn bộ chất xám về máy">📥 Tải Não (0)</button>
+                <button class="btn-tool btn-key-pending" id="keyBtn" onclick="setupApiKey()">🔑 Não Gemini</button>
             </div>
         </div>
 
         <div class="chat-stream" id="chatStream">
             <div class="msg bot">
-                Chào bồ! Tôi là <b>Siêu Nhân Trí Tuệ Nhân Tạo AI Phdam (Bản Sao Gemini)</b>.<br><br>
-                ⚡ <b>ĐÃ SỬA LỖI ĐỊNH TUYẾN 404 THÀNH CÔNG:</b><br>
-                • Hệ thống đã tự động liên kết với phiên bản não bộ Google mạnh nhất trong tài khoản của bồ.<br>
-                • Bồ hãy hỏi: <i>"Cái này đấu dây sao bồ?"</i> hoặc gửi ảnh đầu dây điện để tôi hướng dẫn đấu nối từng chân một nhé!
+                Chào bồ! Tôi là <b>Siêu Nhân Trí Tuệ Nhân Tạo AI Phdam</b>.<br><br>
+                🧠 <b>CỖ MÁY HẤP THỤ TRI THỨC ĐÃ HOẠT ĐỘNG:</b><br>
+                • Mỗi khi bồ hỏi và tôi giải đáp các bài toán kỹ thuật, đấu dây điện ➔ Hệ thống sẽ <b>tự động lưu vào Két Sắt Tri Thức Riêng</b> để con AI tự học và bớt phụ thuộc dần!<br>
+                • Bồ có thể bấm nút <b>[📥 Tải Não]</b> ở góc trên để tải toàn bộ cuốn bí kíp đó về điện thoại cất giữ bất cứ lúc nào!
             </div>
         </div>
     </div>
@@ -502,7 +540,7 @@ HTML_PAGE = """
             <label for="fileInput" class="btn-icon-label" title="Chọn ảnh / video">+</label>
             <input type="file" id="fileInput" accept="image/*,video/*" multiple onchange="handleFileSelected(event)">
 
-            <input type="text" id="chatInput" class="chat-input" placeholder="Hỏi đấu dây, số mấy hoặc tạo video..." autocomplete="off">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Hỏi đấu dây, số mấy, hoặc tạo video..." autocomplete="off">
 
             <button type="button" class="btn-icon" id="micBtn" onclick="toggleMic()" title="Nói">🎙️</button>
             <button type="submit" class="btn-enter" title="Chạy">ENTER ↵</button>
@@ -518,16 +556,29 @@ HTML_PAGE = """
             const savedBg = localStorage.getItem('phdam_user_bg');
             if (savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
             checkAndSyncKey();
+            updateVaultCounter();
         });
+
+        async function updateVaultCounter() {
+            try {
+                const res = await fetch('/api/vault-count');
+                const d = await res.json();
+                document.getElementById('vaultBtn').innerText = `📥 Tải Não (${d.count})`;
+            } catch(e) {}
+        }
+
+        function downloadBrainBackup() {
+            window.open('/api/export-brain', '_blank');
+        }
 
         function checkAndSyncKey() {
             const savedKey = localStorage.getItem('phdam_gemini_key');
             const keyBtn = document.getElementById('keyBtn');
             if (savedKey && savedKey.startsWith('AIza')) {
-                keyBtn.innerText = '✅ Đã Kích Hoạt Não Gemini';
+                keyBtn.innerText = '✅ Đã Có Não';
                 keyBtn.className = 'btn-tool btn-key-active';
             } else {
-                keyBtn.innerText = '🔑 Cài Não Gemini';
+                keyBtn.innerText = '🔑 Não Gemini';
                 keyBtn.className = 'btn-tool btn-key-pending';
             }
         }
@@ -546,7 +597,7 @@ HTML_PAGE = """
                 body: JSON.stringify({ key: cleanKey })
             });
 
-            alert("🎉 ĐÃ KÍCH HOẠT VĨNH VIỄN! Bản sao Google Gemini đã sẵn sàng soi số cho bồ!");
+            alert("🎉 ĐÃ KÍCH HOẠT VĨNH VIỄN! Bản sao Google Gemini đã sẵn sàng!");
         }
 
         function changeBackground(e) {
@@ -665,7 +716,7 @@ HTML_PAGE = """
 
             const isAskingVideo = /tạo videos?|làm videos?|tạo phim/i.test(text);
             const tempId = 'bot_temp_' + Date.now();
-            stream.innerHTML += `<div class="msg bot" id="${tempId}">${isAskingVideo ? '🎬 Siêu Đạo Diễn AI đang kết xuất video MP4...' : '⚡ Bản sao Gemini đang soi ảnh và phân tích...'}</div>`;
+            stream.innerHTML += `<div class="msg bot" id="${tempId}">${isAskingVideo ? '🎬 Siêu Đạo Diễn AI đang kết xuất video MP4...' : '⚡ Bản sao Gemini đang suy nghĩ và hấp thụ tri thức...'}</div>`;
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
             try {
@@ -685,6 +736,11 @@ HTML_PAGE = """
                 
                 let botContent = `${d.reply}`;
                 
+                if (d.learned) {
+                    botContent += `<div style="font-size:11px; color:#a855f7; margin-top:6px;">✨ <i>Đã tự động lưu bài học này vào Két Sắt Tri Thức Riêng!</i></div>`;
+                    updateVaultCounter();
+                }
+
                 if (d.video_mp4_url) {
                     botContent += `
                     <div class="cinema-video-card">
@@ -700,7 +756,7 @@ HTML_PAGE = """
                 window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
             } catch (err) {
                 const tempBox = document.getElementById(tempId);
-                tempBox.innerHTML = `⚠️ Máy chủ đang xử lý dữ liệu lớn, bồ bấm ENTER lại nhé!`;
+                tempBox.innerHTML = `⚠️ Máy chủ đang bận xử lý, bồ bấm ENTER lại nhé!`;
             }
         }
 
@@ -732,6 +788,21 @@ HTML_PAGE = """
 async def home():
     return HTML_PAGE
 
+@app.get("/api/vault-count")
+async def vault_count():
+    vault = get_vault()
+    return {"count": len(vault)}
+
+@app.get("/api/export-brain")
+async def export_brain():
+    vault = get_vault()
+    content = json.dumps(vault, ensure_ascii=False, indent=2)
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=AI_Phdam_Brain_Backup.json"}
+    )
+
 @app.post("/api/set-key")
 async def set_key_endpoint(req: Request):
     data = await req.json()
@@ -752,7 +823,6 @@ async def chat_endpoint(req: Request):
         image_data = LAST_STATE["last_image"]
 
     lower_msg = msg.lower()
-    video_mp4_url = None
 
     # 1. TẠO VIDEO MP4
     make_video_triggers = ["tạo video", "tạo videos", "làm video", "tạo phim", "làm phim"]
@@ -768,20 +838,32 @@ async def chat_endpoint(req: Request):
             f"• <b>Góc quay & Ánh sáng:</b> Chuyển động máy quay mượt mà, ánh sáng điện ảnh 4K.<br>"
             f"👉 Bồ có thể bấm nút Play ▶️ để thưởng thức ngay, hoặc bấm <b>⬇️ Tải Video MP4 về máy</b> để lưu nhé!"
         )
-        return {"reply": reply, "video_mp4_url": video_mp4_url}
+        return {"reply": reply, "video_mp4_url": video_mp4_url, "learned": False}
 
-    # 2. TRẢ LỜI CÂU HỎI VÀ ĐẤU NỐI DÂY ĐIỆN BẰNG GEMINI CHÍNH HÃNG
+    # 2. CƠ CHẾ ƯU TIÊN NÃO NHÀ (Nếu câu hỏi đã có trong Két Sắt ➔ Lấy ra dùng ngay!)
+    if not image_data:
+        vault_hit = search_local_vault(msg)
+        if vault_hit:
+            reply = f"⚡ <b>[TRI THỨC TỰ LẬP TỪ KÉT SẮT CỦA BỒ]:</b><br><br>{vault_hit}"
+            return {"reply": reply, "video_mp4_url": None, "learned": False}
+
+    # 3. NẾU CHƯA CÓ TRONG KHO ➔ GỌI ÔNG THẦY GOOGLE GEMINI ĐỂ HẤP THỤ BÀI HỌC
     gemini_out = call_google_gemini(msg, image_data, client_api_key)
 
     if gemini_out == "CHƯA_CÓ_KEY":
         reply = (
             "🔑 <b>Bồ chưa cài chìa khóa não bộ Google Gemini!</b><br><br>"
-            "Bồ bấm vào nút màu cam <b>[🔑 Cài Não Gemini]</b> ở góc trên màn hình, dán mã khóa bắt đầu bằng chữ <code>AIza...</code> vào là Mắt Thần sẽ hướng dẫn đấu dây ngay!"
+            "Bồ bấm vào nút màu cam <b>[🔑 Não Gemini]</b> ở góc trên màn hình, dán mã khóa bắt đầu bằng chữ <code>AIza...</code> vào là Mắt Thần sẽ hướng dẫn đấu dây ngay!"
         )
-        return {"reply": reply, "video_mp4_url": None}
+        return {"reply": reply, "video_mp4_url": None, "learned": False}
 
     if gemini_out.startswith("LỖI_GOOGLE:"):
         reply = f"⚠️ <b>Google thông báo:</b> {gemini_out.replace('LỖI_GOOGLE:', '')}<br>Bồ kiểm tra lại mã khóa API nhé!"
-        return {"reply": reply, "video_mp4_url": None}
+        return {"reply": reply, "video_mp4_url": None, "learned": False}
 
-    return {"reply": gemini_out, "video_mp4_url": None}
+    # 4. TỰ ĐỘNG LƯU CÂU TRẢ LỜI XUẤT SẮC NÀY VÀO KHO ĐỂ LẦN SAU BỚT PHỤ THUỘC
+    if not image_data and len(msg) > 5:
+        save_to_vault(msg, gemini_out)
+        return {"reply": gemini_out, "video_mp4_url": None, "learned": True}
+
+    return {"reply": gemini_out, "video_mp4_url": None, "learned": False}
