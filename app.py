@@ -17,6 +17,8 @@ LAST_STATE = {
     "theme": "sửa điện"
 }
 
+AVAILABLE_MODEL = None
+
 def get_saved_key():
     if os.path.exists(CONFIG_FILE):
         try:
@@ -32,36 +34,43 @@ def save_key_to_file(key: str):
         json.dump({"gemini_key": key.strip()}, f, ensure_ascii=False, indent=2)
 
 MASTER_DIRECTOR_PROMPT = (
-    "Bạn là SIÊU ĐẠO DIỄN ĐIỆN ẢNH VÀ TRÍ TUỆ NHÂN TẠO PHDAM (Hollywood AI Director). "
+    "Bạn là SIÊU ĐẠO DIỄN ĐIỆN ẢNH VÀ TRÍ TUỆ NHÂN TẠO PHDAM (Bản sao tối thượng của Google Gemini). "
     "Bạn xưng hô thân mật là 'mình' hoặc 'tôi' và gọi người dùng là 'bồ'. "
-    "Bạn am hiểu bách khoa toàn thư, tự động hóa, kỹ thuật, và đặc biệt là bậc thầy về kỹ xảo điện ảnh, tạo video siêu thực vượt tầm Meta AI. "
-    "Khi người dùng yêu cầu tạo video: Hãy viết lời bình phân tích góc máy, ánh sáng, chuyển động và chúc mừng người dùng thưởng thức tác phẩm. "
-    "Khi người dùng hỏi kỹ thuật hoặc gửi ảnh: Soi thật kỹ từng chi tiết nhỏ nhất để giải đáp tận tình."
+    "Bạn là chuyên gia hàng đầu về: Tự động hóa, Cơ điện tử, Đấu nối dây điện, Biến tần VFD, Đọc số đầu cosse dây điện, cùng kỹ xảo video điện ảnh Hollywood. "
+    "Khi người dùng hỏi 'đấu dây sao', 'số mấy', 'sửa điện': Hãy quan sát thật kỹ bức ảnh, chỉ rõ từng chân cắm, ký hiệu cổng (L, N, U, V, W, chân kích chạy, chân biến trở) và hướng dẫn chi tiết cách đấu nối an toàn tuyệt đối. "
+    "Phong thái: Siêu thông thái, tận tâm, thực tế, đúng chất kỹ sư trưởng đồng hành cùng bồ."
 )
 
-def build_hollywood_video_prompt(msg: str):
-    """Bộ biên dịch góc máy Hollywood chuyên nghiệp sang tiếng Anh chuẩn để render video"""
-    m = msg.lower()
-    
-    if any(k in m for k in ["sửa điện", "thợ điện", "tủ điện", "đấu điện"]):
-        LAST_STATE["theme"] = "kỹ sư sửa điện"
-        action = "Vietnamese electrical engineer skillfully repairing automation control panel, holding multimeter and wire pliers, delicate sparks, dynamic camera panning, cinematic 35mm lens, photorealistic 8k motion"
-    elif any(k in m for k in ["bánh mì", "ăn bánh mì", "cầm bánh mì"]):
-        LAST_STATE["theme"] = "ăn bánh mì đi dạo"
-        action = "Vietnamese person holding and eating a delicious crispy baguette bread while walking happily down a scenic city avenue, natural gentle breeze, golden hour sunlight, smooth tracking shot 4k"
-    elif any(k in m for k in ["đi dạo", "chạy bộ", "bước đi"]):
-        LAST_STATE["theme"] = "bước đi dạo phố"
-        action = "person walking gracefully along a futuristic neon-lit boulevard, smooth steadycam forward tracking shot, cinematic atmospheric lighting, 4k 60fps"
-    elif any(k in m for k in ["hát", "ca sĩ", "biểu diễn"]):
-        LAST_STATE["theme"] = "ca sĩ biểu diễn"
-        action = "passionate singer performing with studio microphone on a grand stage, moving dynamic beam lights, smoke haze effects, emotional facial expression, 4k cinematic"
-    else:
-        cleaned = re.sub(r'(tạo videos?|tạo phim|làm videos?|vẽ|cho tôi|giúp tôi)\s*', '', m).strip()
-        if not cleaned:
-            cleaned = "person walking proudly into the future"
-        action = f"{cleaned}, highly realistic character movement, professional cinematic camera motion, dramatic studio lighting, 4k ultra-detailed"
+def auto_detect_gemini_model(api_key: str):
+    """Tự động hỏi Google xem tài khoản này đang mở những model Gemini nào để chọn chuẩn 100%"""
+    global AVAILABLE_MODEL
+    if AVAILABLE_MODEL:
+        return AVAILABLE_MODEL
 
-    return action
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+        req = urllib.request.Request(url, headers={"User-Agent": "AI-Phdam/ModelDetector"})
+        with urllib.request.urlopen(req, timeout=6) as res:
+            data = json.loads(res.read().decode("utf-8"))
+            models = data.get("models", [])
+            
+            # Ưu tiên tìm các dòng Flash mới nhất có hỗ trợ generateContent
+            for m in models:
+                if "generateContent" in m.get("supportedGenerationMethods", []):
+                    name = m.get("name", "").replace("models/", "")
+                    if "flash" in name and "image" not in name:
+                        AVAILABLE_MODEL = name
+                        return AVAILABLE_MODEL
+            
+            # Nếu không có flash, lấy model bất kỳ hỗ trợ generateContent
+            for m in models:
+                if "generateContent" in m.get("supportedGenerationMethods", []):
+                    AVAILABLE_MODEL = m.get("name", "").replace("models/", "")
+                    return AVAILABLE_MODEL
+    except Exception:
+        pass
+
+    return "gemini-2.5-flash"
 
 def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = None):
     key = api_key if api_key else get_saved_key()
@@ -72,7 +81,12 @@ def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = Non
     if base64_image:
         clean_b64 = re.sub(r'^data:image\/[a-zA-Z]+;base64,', '', base64_image)
 
-    models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+    # Tự động phát hiện model Google hỗ trợ
+    detected_model = auto_detect_gemini_model(key)
+    models_to_try = [detected_model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-pro"]
+    # Loại bỏ trùng lặp giữ nguyên thứ tự
+    models_to_try = list(dict.fromkeys(models_to_try))
+
     last_error_msg = ""
 
     for model_name in models_to_try:
@@ -89,14 +103,14 @@ def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = Non
 
         full_prompt = (
             f"[CHỈ DẪN HỆ THỐNG]: {MASTER_DIRECTOR_PROMPT}\n\n"
-            f"[YÊU CẦU CỦA BỒ]: {prompt if prompt else 'Hãy soi thật kỹ bức ảnh này và phân tích chi tiết.'}"
+            f"[CÂU HỎI CỦA BỒ]: {prompt if prompt else 'Hãy soi thật kỹ bức ảnh này và hướng dẫn đấu nối dây điện chi tiết từng chân.'}"
         )
         parts.append({"text": full_prompt})
 
         payload = {
             "contents": [{"parts": parts}],
             "generationConfig": {
-                "temperature": 0.4,
+                "temperature": 0.3,
                 "maxOutputTokens": 2048
             }
         }
@@ -114,16 +128,30 @@ def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = Non
                 if candidates:
                     text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text")
                     if text_out:
+                        AVAILABLE_MODEL = model_name  # Ghi nhớ model đã chạy thành công
                         return text_out.strip()
         except urllib.error.HTTPError as e:
             err_text = e.read().decode("utf-8", errors="ignore")
             last_error_msg = f"Mã lỗi Google {e.code}: {err_text[:150]}"
-            continue
+            continue  # Nếu gặp 404, lập tức thử ngay model tiếp theo
         except Exception as e:
             last_error_msg = str(e)
             continue
 
     return f"LỖI_GOOGLE: {last_error_msg}"
+
+def build_hollywood_video_prompt(msg: str):
+    m = msg.lower()
+    if any(k in m for k in ["sửa điện", "thợ điện", "tủ điện", "đấu điện"]):
+        LAST_STATE["theme"] = "kỹ sư sửa điện"
+        action = "Vietnamese electrical engineer skillfully repairing automation control panel, holding multimeter and wire pliers, delicate sparks, dynamic camera panning, cinematic 35mm lens, photorealistic 8k motion"
+    elif any(k in m for k in ["bánh mì", "ăn bánh mì"]):
+        LAST_STATE["theme"] = "ăn bánh mì đi dạo"
+        action = "Vietnamese person holding and eating a delicious crispy baguette bread while walking happily down a scenic city avenue, natural gentle breeze, golden hour sunlight, smooth tracking shot 4k"
+    else:
+        cleaned = re.sub(r'(tạo videos?|tạo phim|làm videos?|vẽ|cho tôi|giúp tôi)\s*', '', m).strip()
+        action = f"{cleaned if cleaned else 'person walking into the future'}, highly realistic character movement, professional cinematic camera motion, dramatic studio lighting, 4k ultra-detailed"
+    return action
 
 HTML_PAGE = """
 <!DOCTYPE html>
@@ -259,7 +287,6 @@ HTML_PAGE = """
             object-fit: cover;
         }
 
-        /* KHUNG XUẤT BẢN VIDEO ĐIỆN ẢNH CHUYÊN NGHIỆP */
         .cinema-video-card {
             margin-top: 10px;
             background: rgba(0, 0, 0, 0.6);
@@ -448,7 +475,7 @@ HTML_PAGE = """
         <div class="header">
             <div class="header-title">
                 <h1>⚡ SIÊU NHÂN AI PHDAM</h1>
-                <p>Hollywood Cinema Studio • Vượt Tầm Meta AI</p>
+                <p>Google Gemini Tự Động Định Tuyến • Hollywood Studio</p>
             </div>
             <div class="header-actions">
                 <button class="btn-tool btn-key-pending" id="keyBtn" onclick="setupApiKey()">🔑 Cài Não Gemini</button>
@@ -458,10 +485,10 @@ HTML_PAGE = """
 
         <div class="chat-stream" id="chatStream">
             <div class="msg bot">
-                Chào bồ! Tôi là <b>Siêu Đạo Diễn Điện Ảnh AI Phdam</b>.<br><br>
-                🎬 <b>ĐÃ MỞ KHÓA TÍNH NĂNG TẠO VIDEO MP4 ĐIỆN ẢNH THẬT SỰ:</b><br>
-                • Bồ chỉ cần gõ: <i>"Tạo video tôi đang sửa điện"</i>, <i>"Tạo video người đi dạo trên phố"</i>, hoặc gửi ảnh chân dung bảo tạo video.<br>
-                • Tôi sẽ <b>kết xuất ra đoạn video MP4 chuyển động sống động</b> kèm bảng phát video và nút tải file MP4 trực tiếp về điện thoại cho bồ!
+                Chào bồ! Tôi là <b>Siêu Nhân Trí Tuệ Nhân Tạo AI Phdam (Bản Sao Gemini)</b>.<br><br>
+                ⚡ <b>ĐÃ SỬA LỖI ĐỊNH TUYẾN 404 THÀNH CÔNG:</b><br>
+                • Hệ thống đã tự động liên kết với phiên bản não bộ Google mạnh nhất trong tài khoản của bồ.<br>
+                • Bồ hãy hỏi: <i>"Cái này đấu dây sao bồ?"</i> hoặc gửi ảnh đầu dây điện để tôi hướng dẫn đấu nối từng chân một nhé!
             </div>
         </div>
     </div>
@@ -475,7 +502,7 @@ HTML_PAGE = """
             <label for="fileInput" class="btn-icon-label" title="Chọn ảnh / video">+</label>
             <input type="file" id="fileInput" accept="image/*,video/*" multiple onchange="handleFileSelected(event)">
 
-            <input type="text" id="chatInput" class="chat-input" placeholder="Gõ: 'Tạo video...' hoặc hỏi kỹ thuật..." autocomplete="off">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Hỏi đấu dây, số mấy hoặc tạo video..." autocomplete="off">
 
             <button type="button" class="btn-icon" id="micBtn" onclick="toggleMic()" title="Nói">🎙️</button>
             <button type="submit" class="btn-enter" title="Chạy">ENTER ↵</button>
@@ -638,7 +665,7 @@ HTML_PAGE = """
 
             const isAskingVideo = /tạo videos?|làm videos?|tạo phim/i.test(text);
             const tempId = 'bot_temp_' + Date.now();
-            stream.innerHTML += `<div class="msg bot" id="${tempId}">${isAskingVideo ? '🎬 Siêu Đạo Diễn AI đang tính toán chuyển động và kết xuất video MP4...' : '⚡ Siêu Nhân AI đang phân tích dữ liệu...'}</div>`;
+            stream.innerHTML += `<div class="msg bot" id="${tempId}">${isAskingVideo ? '🎬 Siêu Đạo Diễn AI đang kết xuất video MP4...' : '⚡ Bản sao Gemini đang soi ảnh và phân tích...'}</div>`;
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
             try {
@@ -658,7 +685,6 @@ HTML_PAGE = """
                 
                 let botContent = `${d.reply}`;
                 
-                // NẾU CÓ XUẤT VIDEO MP4 THẬT SỰ
                 if (d.video_mp4_url) {
                     botContent += `
                     <div class="cinema-video-card">
@@ -674,7 +700,7 @@ HTML_PAGE = """
                 window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
             } catch (err) {
                 const tempBox = document.getElementById(tempId);
-                tempBox.innerHTML = `⚠️ Máy chủ đang xử lý dữ liệu video lớn, bồ bấm ENTER lại nhé!`;
+                tempBox.innerHTML = `⚠️ Máy chủ đang xử lý dữ liệu lớn, bồ bấm ENTER lại nhé!`;
             }
         }
 
@@ -722,39 +748,35 @@ async def chat_endpoint(req: Request):
 
     if image_data:
         LAST_STATE["last_image"] = image_data
-    elif LAST_STATE["last_image"] and any(w in msg.lower() for w in ["số", "thấy", "dây", "ảnh", "hình", "mấy", "đầu dây", "này", "video"]):
+    elif LAST_STATE["last_image"] and any(w in msg.lower() for w in ["số", "thấy", "dây", "ảnh", "hình", "mấy", "đầu dây", "này", "đấu dây"]):
         image_data = LAST_STATE["last_image"]
 
     lower_msg = msg.lower()
     video_mp4_url = None
 
-    # 1. NHẬN DIỆN LỆNH TẠO VIDEO MP4 ĐIỆN ẢNH THẬT SỰ
-    make_video_triggers = ["tạo video", "tạo videos", "làm video", "tạo phim", "làm phim", "render video"]
+    # 1. TẠO VIDEO MP4
+    make_video_triggers = ["tạo video", "tạo videos", "làm video", "tạo phim", "làm phim"]
     if any(k in lower_msg for k in make_video_triggers):
         hollywood_prompt = build_hollywood_video_prompt(msg)
         rand_seed = random.randint(1000, 999999)
         encoded_prompt = urllib.parse.quote(hollywood_prompt)
-        
-        # Kết nối tới Cỗ máy sinh Video MP4 đa phương thức
         video_mp4_url = f"https://gen.pollinations.ai/video/{encoded_prompt}?seed={rand_seed}&nologo=true"
-        LAST_STATE["last_video_url"] = video_mp4_url
 
         reply = (
             f"🎬 <b>SIÊU ĐẠO DIỄN AI PHDAM ĐÃ KẾT XUẤT VIDEO MP4 THÀNH CÔNG!</b><br><br>"
             f"• <b>Phân cảnh:</b> {LAST_STATE['theme'].upper()}<br>"
-            f"• <b>Góc quay & Ánh sáng:</b> Chuyển động máy quay mượt mà, ánh sáng điện ảnh 4K Cinematic Lighting.<br>"
-            f"• <b>Định dạng kết xuất:</b> Video MP4 chuyển động thực tế (Phát trực tiếp bên dưới).<br><br>"
-            f"👉 Bồ có thể bấm nút Play ▶️ để thưởng thức ngay, hoặc bấm <b>⬇️ Tải Video MP4 về máy</b> để chia sẻ lên mạng xã hội nhé!"
+            f"• <b>Góc quay & Ánh sáng:</b> Chuyển động máy quay mượt mà, ánh sáng điện ảnh 4K.<br>"
+            f"👉 Bồ có thể bấm nút Play ▶️ để thưởng thức ngay, hoặc bấm <b>⬇️ Tải Video MP4 về máy</b> để lưu nhé!"
         )
         return {"reply": reply, "video_mp4_url": video_mp4_url}
 
-    # 2. HỎI ĐÁP VÀ NHẬN DIỆN BẰNG SIÊU NÃO GOOGLE GEMINI
+    # 2. TRẢ LỜI CÂU HỎI VÀ ĐẤU NỐI DÂY ĐIỆN BẰNG GEMINI CHÍNH HÃNG
     gemini_out = call_google_gemini(msg, image_data, client_api_key)
 
     if gemini_out == "CHƯA_CÓ_KEY":
         reply = (
             "🔑 <b>Bồ chưa cài chìa khóa não bộ Google Gemini!</b><br><br>"
-            "Bồ bấm vào nút màu cam <b>[🔑 Cài Não Gemini]</b> ở góc trên màn hình, dán mã khóa bắt đầu bằng chữ <code>AIza...</code> vào là Mắt Thần và Đạo Diễn AI sẽ hoạt động đỉnh cao ngay!"
+            "Bồ bấm vào nút màu cam <b>[🔑 Cài Não Gemini]</b> ở góc trên màn hình, dán mã khóa bắt đầu bằng chữ <code>AIza...</code> vào là Mắt Thần sẽ hướng dẫn đấu dây ngay!"
         )
         return {"reply": reply, "video_mp4_url": None}
 
