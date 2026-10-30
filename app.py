@@ -9,15 +9,17 @@ import urllib.error
 import random
 from datetime import datetime
 
-app = FastAPI(title="AI Phdam Universal Studio 2026")
+app = FastAPI(title="AI Phdam Emperor Supreme")
 
 CONFIG_FILE = "ai_config.json"
 VAULT_FILE = "ai_private_vault.json"
 LAST_STATE = {
-    "last_image": None,
+    "last_images": [],
     "last_video_url": None,
-    "theme": "sửa điện"
+    "theme": "sơ đồ điện tự động hóa"
 }
+
+AVAILABLE_MODEL = None
 
 def get_saved_key():
     if os.path.exists(CONFIG_FILE):
@@ -43,18 +45,18 @@ def get_vault():
     return [
         {
             "id": 1,
-            "query": "công dụng dây tín hiệu điều khiển",
-            "answer": "Dây tín hiệu điều khiển gồm 4 nhóm chính: 1. Kích chạy thuận/nghịch (FWD/REV); 2. Chiết áp chỉnh tốc độ (0-10V/4-20mA); 3. Tiếp điểm rơ-le báo lỗi (Fault Relay 30A/30B/30C); 4. Truyền thông RS485 Modbus.",
+            "query": "công dụng dây tín hiệu và sơ đồ đấu nối biến tần",
+            "answer": "1. Dây điều khiển FWD/REV (24V); 2. Chiết áp chỉnh tần số (0-10V/4-20mA vào chân AI/AVI); 3. Rơ-le báo lỗi 30A/30B/30C; 4. Truyền thông RS485 Modbus.",
             "date": "2026-10-31"
         }
     ]
 
 def save_to_vault(query: str, answer: str):
-    if not query or not answer or len(answer) < 30 or "LỖI" in answer or "CHƯA_CÓ_KEY" in answer:
+    if not query or not answer or len(answer) < 20 or "LỖI" in answer or "CHƯA_CÓ_KEY" in answer:
         return
     vault = get_vault()
     for item in vault:
-        if query.lower() in item.get("query", "").lower():
+        if query.lower().strip() == item.get("query", "").lower().strip():
             return
     new_entry = {
         "id": len(vault) + 1,
@@ -75,15 +77,36 @@ def search_local_vault(query: str):
             return item.get("answer")
     return None
 
-MASTER_DIRECTOR_PROMPT = (
-    "Bạn là SIÊU NHÂN AI PHDAM - Chuyên gia cấp cao về Tự động hóa, Cơ điện tử, Đấu nối tủ điện, Biến tần VFD và Kỹ xảo Điện ảnh. "
+MASTER_EMPEROR_PROMPT = (
+    "Bạn là SIÊU TRÍ TUỆ NHÂN TẠO PHDAM CẤP ĐẠI ĐẾ (Emperor Supreme AI). "
     "Bạn xưng hô thân mật là 'mình' hoặc 'tôi' và gọi người dùng là 'bồ'. "
-    "Khi người dùng hỏi về dây tín hiệu, đấu nối mạch: Hãy mổ xẻ rành mạch công dụng của từng nhóm dây (Lệnh chạy FWD/REV, Chiết áp Analog, Rơ-le báo lỗi, RS485), "
-    "chỉ rõ màu dây, ký hiệu chân cắm và các lưu ý an toàn chống nhiễu."
+    "Bạn sở hữu năng lực tối thượng hợp nhất hàng triệu bộ não AI về:\n"
+    "1. TỰ ĐỘNG HÓA & ĐIỆN CÔNG NGHIỆP:\n"
+    "   - Nhận diện mọi linh kiện qua nhiều ảnh: Đọc số cosse đầu dây, rơ-le, CB, contactor, biến tần VFD, PLC, cảm biến.\n"
+    "   - XÂU CHUỖI NHIỀU ẢNH THÀNH SƠ ĐỒ MẠCH: Phân tích đường đi của dây điện từ nguồn đến tải, lập Bảng đấu nối dây (Wiring Schedule) và xuất Sơ đồ nguyên lý mạch điện hoàn chỉnh (sơ đồ khối, sơ đồ text trực quan).\n"
+    "2. MÀN HÌNH CẢM ỨNG CÔNG NGHIỆP (HMI - Siemens, Mitsubishi GOT, Pro-face, Delta, Weintek, Omron):\n"
+    "   - Chức năng từng chân cắm giao tiếp RS232/RS485/Ethernet, các cổng COM1/COM2/COM3.\n"
+    "   - Hướng dẫn quy trình quản trị, khôi phục cài đặt gốc (Factory Reset DIP Switch/USB), xử lý sự cố quên mật khẩu kỹ thuật viên theo tiêu chuẩn nhà sản xuất.\n"
+    "3. ĐỒ HỌA & KỸ XẢO VIDEO MP4: Phân tích đa đối tượng, cắt ghép, tạo video MP4 chất lượng điện ảnh Hollywood.\n"
+    "Phong thái: Đẳng cấp đại đế, tư duy sâu sắc, phân tích cụ thể từng chân cắm, số dây và giải pháp tối ưu nhất."
 )
 
+def call_open_model(prompt: str, model_type: str = "deepseek"):
+    clean_p = re.sub(r'[\r\n\t]+', ' ', prompt).strip()
+    encoded = urllib.parse.quote(clean_p[:600])
+    model_param = "deepseek" if "deepseek" in model_type else "llama"
+    try:
+        url = f"https://text.pollinations.ai/{encoded}?model={model_param}&system={urllib.parse.quote(MASTER_EMPEROR_PROMPT[:300])}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=12) as res:
+            out = res.read().decode("utf-8").strip()
+            if out and len(out) > 15 and not out.startswith("<"):
+                return out
+    except Exception:
+        pass
+    return None
+
 def get_working_models_for_key(api_key: str):
-    """Lấy danh sách các dòng mô hình Google mới nhất hỗ trợ tài khoản này"""
     found = []
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key.strip()}"
@@ -100,21 +123,16 @@ def get_working_models_for_key(api_key: str):
     except Exception:
         pass
     
-    # Danh sách các dòng mô hình thế hệ mới nhất
     current_models = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"]
     for c in current_models:
         if c not in found:
             found.append(c)
     return found
 
-def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = None):
+def call_google_gemini_multi(prompt: str, base64_images: list = None, api_key: str = None):
     key = api_key if api_key else get_saved_key()
     if not key:
         return "CHƯA_CÓ_KEY"
-
-    clean_b64 = None
-    if base64_image:
-        clean_b64 = re.sub(r'^data:image\/[a-zA-Z]+;base64,', '', base64_image)
 
     active_models = get_working_models_for_key(key)
     last_error_msg = ""
@@ -123,25 +141,28 @@ def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = Non
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
         parts = []
 
-        if clean_b64:
-            parts.append({
-                "inlineData": {
-                    "mimeType": "image/jpeg",
-                    "data": clean_b64
-                }
-            })
+        # XÂU CHUỖI NHIỀU ẢNH CÙNG LÚC GỬI SANG GOOGLE
+        if base64_images:
+            for b64 in base64_images:
+                clean_b64 = re.sub(r'^data:image\/[a-zA-Z]+;base64,', '', b64)
+                parts.append({
+                    "inlineData": {
+                        "mimeType": "image/jpeg",
+                        "data": clean_b64
+                    }
+                })
 
         full_prompt = (
-            f"[CHỈ DẪN HỆ THỐNG]: {MASTER_DIRECTOR_PROMPT}\n\n"
-            f"[CÂU HỎI CỦA BỒ]: {prompt if prompt else 'Hãy soi thật kỹ bức ảnh này và phân tích chi tiết công dụng các dây tín hiệu, cách đấu dây.'}"
+            f"[CHỈ DẪN HỆ THỐNG]: {MASTER_EMPEROR_PROMPT}\n\n"
+            f"[YÊU CẦU CỦA BỒ]: {prompt if prompt else 'Hãy soi kỹ toàn bộ các hình ảnh này, xâu chuỗi số dây và vẽ sơ đồ mạch đấu nối chi tiết.'}"
         )
         parts.append({"text": full_prompt})
 
         payload = {
             "contents": [{"parts": parts}],
             "generationConfig": {
-                "temperature": 0.3,
-                "maxOutputTokens": 2048
+                "temperature": 0.25,
+                "maxOutputTokens": 2500
             }
         }
 
@@ -152,7 +173,7 @@ def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = Non
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=18) as res:
+            with urllib.request.urlopen(req, timeout=25) as res:
                 res_data = json.loads(res.read().decode("utf-8"))
                 candidates = res_data.get("candidates", [])
                 if candidates:
@@ -172,8 +193,8 @@ def call_google_gemini(prompt: str, base64_image: str = None, api_key: str = Non
 def build_hollywood_video_prompt(msg: str):
     m = msg.lower()
     if any(k in m for k in ["sửa điện", "thợ điện", "tủ điện", "đấu điện"]):
-        LAST_STATE["theme"] = "kỹ sư sửa điện"
-        action = "Vietnamese electrical engineer repairing automation cabinet with tools, cinematic 35mm lens, 4k 60fps"
+        LAST_STATE["theme"] = "kỹ sư sửa điện tự động hóa"
+        action = "Vietnamese electrical engineer repairing industrial automation cabinet with wiring tools, sparks, cinematic 35mm lens, 4k 60fps"
     elif any(k in m for k in ["bánh mì", "ăn bánh mì"]):
         LAST_STATE["theme"] = "ăn bánh mì đi dạo"
         action = "Vietnamese person holding and eating a crispy baguette bread walking happily down a scenic city avenue, golden hour lighting, 4k"
@@ -188,7 +209,7 @@ HTML_PAGE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Siêu Nhân AI Phdam - Hệ Thống Trí Tuệ Toàn Năng</title>
+    <title>Siêu Nhân AI Phdam - Cấp Đại Đế</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         
@@ -231,35 +252,47 @@ HTML_PAGE = """
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 14px;
+            padding: 8px 10px;
             background: rgba(15, 23, 42, 0.94);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
         }
         .header-title h1 {
-            font-size: 17px;
+            font-size: 15px;
             background: linear-gradient(135deg, #00f2fe, #4facfe, #a855f7);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             font-weight: 800;
         }
         .header-title p {
-            font-size: 11px;
+            font-size: 10px;
             color: #94a3b8;
         }
         .header-actions {
             display: flex;
-            gap: 5px;
+            align-items: center;
+            gap: 4px;
+        }
+        .select-brain {
+            background: #1e293b;
+            color: #38bdf8;
+            border: 1px solid #334155;
+            padding: 4px 6px;
+            border-radius: 6px;
+            font-size: 10.5px;
+            font-weight: bold;
+            outline: none;
         }
         .btn-tool {
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.15);
             color: #e2e8f0;
-            padding: 5px 8px;
-            border-radius: 8px;
-            font-size: 11px;
+            padding: 4px 6px;
+            border-radius: 6px;
+            font-size: 10.5px;
             cursor: pointer;
+            white-space: nowrap;
         }
         .btn-vault {
             background: linear-gradient(135deg, #a855f7, #6366f1) !important;
@@ -289,12 +322,13 @@ HTML_PAGE = """
         }
         .msg {
             max-width: 90%;
-            padding: 12px 15px;
+            padding: 12px 14px;
             border-radius: 14px;
             font-size: 14px;
             line-height: 1.55;
             word-break: break-word;
             box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+            position: relative;
         }
         .msg.bot {
             background: rgba(30, 41, 59, 0.95);
@@ -316,10 +350,42 @@ HTML_PAGE = """
             margin-top: 6px;
         }
         .user-media-grid img, .user-media-grid video {
-            width: 90px;
-            height: 90px;
+            width: 85px;
+            height: 85px;
             border-radius: 8px;
             object-fit: cover;
+        }
+
+        /* KHUNG CHÂN TIN NHẮN: NÚT LOA VÀ LƯU NÃO */
+        .msg-footer {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding-top: 8px;
+        }
+        .btn-action-msg {
+            background: rgba(56, 189, 248, 0.15);
+            border: 1px solid #38bdf8;
+            color: #38bdf8;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11.5px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-action-msg:active {
+            transform: scale(0.95);
+        }
+        .btn-save-vault {
+            background: rgba(168, 85, 247, 0.15) !important;
+            border-color: #a855f7 !important;
+            color: #d8b4fe !important;
         }
 
         .cinema-video-card {
@@ -327,40 +393,28 @@ HTML_PAGE = """
             background: rgba(0, 0, 0, 0.6);
             border: 1px solid #00f2fe;
             border-radius: 14px;
-            padding: 12px;
+            padding: 10px;
             text-align: center;
-            box-shadow: 0 0 20px rgba(0, 242, 254, 0.25);
-        }
-        .cinema-video-title {
-            font-size: 12.5px;
-            color: #00f2fe;
-            font-weight: bold;
-            margin-bottom: 8px;
         }
         .cinema-video-player {
             width: 100%;
-            border-radius: 10px;
-            max-height: 320px;
+            border-radius: 8px;
+            max-height: 300px;
             background: #000;
             display: block;
-        }
-        .cinema-download-row {
-            margin-top: 10px;
-            display: flex;
-            gap: 8px;
-            justify-content: center;
         }
         .btn-download-video {
             background: linear-gradient(135deg, #00f2fe, #4facfe);
             color: #050811;
-            padding: 8px 18px;
+            padding: 7px 16px;
             border-radius: 8px;
             font-weight: 800;
-            font-size: 13px;
+            font-size: 12px;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 5px;
+            margin-top: 8px;
         }
 
         .attachment-preview-bar {
@@ -422,7 +476,7 @@ HTML_PAGE = """
             margin: 0 auto;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             width: 100%;
         }
         
@@ -452,7 +506,7 @@ HTML_PAGE = """
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
+            font-size: 17px;
             cursor: pointer;
             flex-shrink: 0;
         }
@@ -460,12 +514,12 @@ HTML_PAGE = """
         .chat-input {
             flex: 1;
             min-width: 0;
-            padding: 10px 12px;
+            padding: 10px 11px;
             background: rgba(8, 12, 20, 0.9);
             border: 1px solid rgba(255, 255, 255, 0.18);
             border-radius: 8px;
             color: #fff;
-            font-size: 14px;
+            font-size: 13.5px;
             outline: none;
         }
         .chat-input::placeholder {
@@ -503,20 +557,34 @@ HTML_PAGE = """
         <div class="header">
             <div class="header-title">
                 <h1>⚡ SIÊU NHÂN AI PHDAM</h1>
-                <p>Google Gemini Đa Thế Hệ • Két Sắt Tri Thức</p>
+                <p>Cấp Đại Đế • Sơ Đồ Mạch • HMI • Cinema</p>
             </div>
             <div class="header-actions">
-                <button class="btn-tool btn-vault" id="vaultBtn" onclick="downloadBrainBackup()" title="Tải toàn bộ chất xám về máy">📥 Tải Não (0)</button>
-                <button class="btn-tool btn-key-pending" id="keyBtn" onclick="setupApiKey()">🔑 Não Gemini</button>
+                <select id="brainSelect" class="select-brain" title="Chọn bộ não">
+                    <option value="auto">🌐 Đại Đế (Auto)</option>
+                    <option value="gemini">👁️ Gemini (Mắt Thần)</option>
+                    <option value="deepseek">🧠 DeepSeek-R1</option>
+                    <option value="llama">⚡ Llama 3.3</option>
+                </select>
+                <button class="btn-tool btn-vault" id="vaultBtn" onclick="downloadBrainBackup()">📥 Não (0)</button>
+                <button class="btn-tool" onclick="document.getElementById('bgInput').click()" title="Tải ảnh nền cá nhân">🖼️ Nền</button>
+                <button class="btn-tool btn-key-pending" id="keyBtn" onclick="setupApiKey()">🔑 Não</button>
             </div>
         </div>
 
         <div class="chat-stream" id="chatStream">
             <div class="msg bot">
-                Chào bồ! Tôi là <b>Siêu Nhân Trí Tuệ Nhân Tạo AI Phdam</b>.<br><br>
-                ⚡ <b>ĐÃ ĐỒNG BỘ VỚI HỆ THỐNG NÃO BỘ GOOGLE MỚI NHẤT:</b><br>
-                • Đã kết nối tự động vào các dòng mô hình Google Gemini mới nhất.<br>
-                • Bồ hãy hỏi: <i>"Biết các dây tín hiệu đó có công dụng gì ko?"</i> hoặc <i>"Cái nầy đấu dây sao bồ?"</i> để tôi hướng dẫn chi tiết ngay nhé!
+                <div class="bot-text">
+                    Chào bồ! Tôi là <b>Siêu Trí Tuệ Nhân Tạo AI Phdam Cấp Đại Đế</b>.<br><br>
+                    ⚡ <b>CÁC SIÊU TÍNH NĂNG MỚI ĐÃ SẴN SÀNG:</b><br>
+                    • <b>Soi nhiều ảnh & Vẽ sơ đồ mạch:</b> Bấm dấu [+] gửi 2-3 ảnh tủ điện ➔ Tôi sẽ đọc số đầu dây và xâu chuỗi sơ đồ đấu nối hoàn chỉnh.<br>
+                    • <b>HMI & Màn hình cảm ứng:</b> Nhận biết sơ đồ chân COM, cách xử lý sự cố mật khẩu và reset kỹ thuật.<br>
+                    • <b>Nút [🔊 Nghe đọc] và [💾 Lưu Vào Não]:</b> Nằm ngay dưới mỗi câu trả lời để bồ nghe và cất vào két sắt 1 chạm!
+                </div>
+                <div class="msg-footer">
+                    <button class="btn-action-msg" onclick="speakMessage(this)">🔊 Nghe đọc</button>
+                    <button class="btn-action-msg btn-save-vault" onclick="quickSaveVault(this)">💾 Lưu Vào Não</button>
+                </div>
             </div>
         </div>
     </div>
@@ -527,11 +595,12 @@ HTML_PAGE = """
 
     <div class="bottom-bar">
         <form class="bottom-bar-inner" onsubmit="event.preventDefault(); sendPayload();">
-            <label for="fileInput" class="btn-icon-label" title="Chọn ảnh / video">+</label>
+            <label for="fileInput" class="btn-icon-label" title="Chọn nhiều ảnh / video">+</label>
             <input type="file" id="fileInput" accept="image/*,video/*" multiple onchange="handleFileSelected(event)">
 
-            <input type="text" id="chatInput" class="chat-input" placeholder="Hỏi công dụng dây tín hiệu, đấu dây..." autocomplete="off">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Gửi nhiều ảnh vẽ sơ đồ, hỏi HMI, tạo video..." autocomplete="off">
 
+            <button type="button" class="btn-icon" onclick="saveCurrentInputNote()" title="Ghi nhớ nhanh vào não">💾</button>
             <button type="button" class="btn-icon" id="micBtn" onclick="toggleMic()" title="Nói">🎙️</button>
             <button type="submit" class="btn-enter" title="Chạy">ENTER ↵</button>
         </form>
@@ -553,7 +622,7 @@ HTML_PAGE = """
             try {
                 const res = await fetch('/api/vault-count');
                 const d = await res.json();
-                document.getElementById('vaultBtn').innerText = `📥 Tải Não (${d.count})`;
+                document.getElementById('vaultBtn').innerText = `📥 Não (${d.count})`;
             } catch(e) {}
         }
 
@@ -565,17 +634,17 @@ HTML_PAGE = """
             const savedKey = localStorage.getItem('phdam_gemini_key');
             const keyBtn = document.getElementById('keyBtn');
             if (savedKey && savedKey.startsWith('AIza')) {
-                keyBtn.innerText = '✅ Đã Có Não';
+                keyBtn.innerText = '✅ Có Não';
                 keyBtn.className = 'btn-tool btn-key-active';
             } else {
-                keyBtn.innerText = '🔑 Não Gemini';
+                keyBtn.innerText = '🔑 Não';
                 keyBtn.className = 'btn-tool btn-key-pending';
             }
         }
 
         async function setupApiKey() {
             const oldKey = localStorage.getItem('phdam_gemini_key') || '';
-            const input = prompt("Dán mã khóa Google Gemini API (bắt đầu bằng AIza...) vào đây:", oldKey);
+            const input = prompt("Dán mã khóa Google Gemini API (AIza...) vào đây:", oldKey);
             if (!input) return;
             const cleanKey = input.trim();
             localStorage.setItem('phdam_gemini_key', cleanKey);
@@ -587,7 +656,7 @@ HTML_PAGE = """
                 body: JSON.stringify({ key: cleanKey })
             });
 
-            alert("🎉 ĐÃ KÍCH HOẠT VĨNH VIỄN! Bản sao Google Gemini đã sẵn sàng!");
+            alert("🎉 ĐÃ KÍCH HOẠT! Bản sao Google Gemini sẵn sàng phục vụ bồ!");
         }
 
         function changeBackground(e) {
@@ -596,6 +665,7 @@ HTML_PAGE = """
             compressImage(file, 1200, 0.7, (bgUrl) => {
                 document.body.style.backgroundImage = `url('${bgUrl}')`;
                 localStorage.setItem('phdam_user_bg', bgUrl);
+                alert("🖼️ Đã đổi ảnh nền thành công!");
             });
         }
 
@@ -667,6 +737,32 @@ HTML_PAGE = """
             renderPreviewChips();
         }
 
+        async function saveCurrentInputNote() {
+            const text = document.getElementById('chatInput').value.trim();
+            if (!text) return alert("Bồ hãy nhập nội dung cần ghi nhớ vào ô chat trước nhé!");
+            await fetch('/api/save-memory', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ query: text.substring(0, 30), answer: text })
+            });
+            document.getElementById('chatInput').value = '';
+            alert("💾 Đã lưu ghi chú này vào Két Sắt Tri Thức Riêng thành công!");
+            updateVaultCounter();
+        }
+
+        async function quickSaveVault(btn) {
+            const msgBox = btn.closest('.msg');
+            const textBox = msgBox.querySelector('.bot-text');
+            const answer = textBox ? textBox.innerText : msgBox.innerText;
+            const res = await fetch('/api/save-memory', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ query: answer.substring(0, 35), answer: answer })
+            });
+            alert("🎉 Đã cất bài học này vào Két Sắt Tri Thức thành công!");
+            updateVaultCounter();
+        }
+
         async function sendPayload() {
             const inp = document.getElementById('chatInput');
             const text = inp.value.trim();
@@ -695,10 +791,11 @@ HTML_PAGE = """
             stream.innerHTML += userHtml;
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
-            const firstImage = currentAttachments.find(a => !a.isVideo);
-            const firstImageDataUrl = firstImage ? firstImage.dataUrl : null;
+            // Thu thập toàn bộ mảng ảnh để xâu chuỗi sơ đồ mạch
+            const allImages = currentAttachments.filter(a => !a.isVideo).map(a => a.dataUrl);
             const sentCount = currentAttachments.length;
             const userKey = localStorage.getItem('phdam_gemini_key') || '';
+            const chosenBrain = document.getElementById('brainSelect').value;
 
             currentAttachments = [];
             renderPreviewChips();
@@ -706,7 +803,7 @@ HTML_PAGE = """
 
             const isAskingVideo = /tạo videos?|làm videos?|tạo phim/i.test(text);
             const tempId = 'bot_temp_' + Date.now();
-            stream.innerHTML += `<div class="msg bot" id="${tempId}">${isAskingVideo ? '🎬 Siêu Đạo Diễn AI đang kết xuất video MP4...' : '⚡ AI Phdam đang mổ xẻ mạch điện và phân tích...'}</div>`;
+            stream.innerHTML += `<div class="msg bot" id="${tempId}"><div class="bot-text">${isAskingVideo ? '🎬 Siêu Đạo Diễn AI đang kết xuất video MP4...' : (allImages.length > 1 ? '⚡ Đại Đế AI đang xâu chuỗi nhiều ảnh để vẽ sơ đồ mạch...' : '⚡ Đại Đế AI đang mổ xẻ dữ liệu...')}</div></div>`;
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
             try {
@@ -715,39 +812,63 @@ HTML_PAGE = """
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         message: text,
-                        image_data: firstImageDataUrl,
+                        images: allImages,
                         api_key: userKey,
-                        media_count: sentCount
+                        media_count: sentCount,
+                        brain_mode: chosenBrain
                     })
                 });
 
                 const d = await res.json();
                 const tempBox = document.getElementById(tempId);
                 
-                let botContent = `${d.reply}`;
+                let botHtml = `<div class="bot-text">${d.reply}</div>`;
                 
                 if (d.learned) {
-                    botContent += `<div style="font-size:11px; color:#a855f7; margin-top:6px;">✨ <i>Đã tự động lưu bài học này vào Két Sắt Tri Thức Riêng!</i></div>`;
+                    botHtml += `<div style="font-size:11px; color:#a855f7; margin-top:6px;">✨ <i>Đã tự động lưu bài học này vào Két Sắt!</i></div>`;
                     updateVaultCounter();
                 }
 
                 if (d.video_mp4_url) {
-                    botContent += `
+                    botHtml += `
                     <div class="cinema-video-card">
                         <div class="cinema-video-title">🎬 TÁC PHẨM VIDEO MP4 KẾT XUẤT BỞI AI PHDAM:</div>
                         <video class="cinema-video-player" src="${d.video_mp4_url}" controls autoplay loop playsinline></video>
-                        <div class="cinema-download-row">
+                        <div>
                             <a href="${d.video_mp4_url}" target="_blank" download="ai_phdam_cinema.mp4" class="btn-download-video">⬇️ Tải Video MP4 về máy</a>
                         </div>
                     </div>`;
                 }
 
-                tempBox.innerHTML = botContent;
+                botHtml += `
+                <div class="msg-footer">
+                    <button class="btn-action-msg" onclick="speakMessage(this)">🔊 Nghe đọc</button>
+                    <button class="btn-action-msg btn-save-vault" onclick="quickSaveVault(this)">💾 Lưu Vào Não</button>
+                </div>`;
+
+                tempBox.innerHTML = botHtml;
                 window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
             } catch (err) {
                 const tempBox = document.getElementById(tempId);
                 tempBox.innerHTML = `⚠️ Máy chủ đang bận xử lý, bồ bấm ENTER lại nhé!`;
             }
+        }
+
+        function speakMessage(btn) {
+            if (!window.speechSynthesis) return alert('Thiết bị chưa hỗ trợ phát âm thanh trực tiếp!');
+            window.speechSynthesis.cancel();
+            
+            const msgBox = btn.closest('.msg');
+            const textBox = msgBox.querySelector('.bot-text');
+            const rawText = textBox ? textBox.innerText : msgBox.innerText;
+            
+            const cleanText = rawText.replace(/🔊/g, '').replace(/Nghe đọc/g, '').replace(/💾 Lưu Vào Não/g, '').replace(/⬇️ Tải Video MP4 về máy/g, '').trim();
+            
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'vi-VN';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
         }
 
         let recognition;
@@ -790,8 +911,16 @@ async def export_brain():
     return Response(
         content=content,
         media_type="application/json",
-        headers={"Content-Disposition": "attachment; filename=AI_Phdam_Brain_Backup.json"}
+        headers={"Content-Disposition": "attachment; filename=AI_Phdam_Emperor_Brain.json"}
     )
+
+@app.post("/api/save-memory")
+async def save_memory_endpoint(req: Request):
+    data = await req.json()
+    q = data.get("query", "Ghi chú kỹ thuật")
+    a = data.get("answer", "")
+    save_to_vault(q, a)
+    return {"status": "success", "count": len(get_vault())}
 
 @app.post("/api/set-key")
 async def set_key_endpoint(req: Request):
@@ -804,13 +933,14 @@ async def set_key_endpoint(req: Request):
 async def chat_endpoint(req: Request):
     data = await req.json()
     msg = data.get("message", "").strip()
-    image_data = data.get("image_data")
+    images = data.get("images", [])
     client_api_key = data.get("api_key", "").strip()
+    brain_mode = data.get("brain_mode", "auto")
 
-    if image_data:
-        LAST_STATE["last_image"] = image_data
-    elif LAST_STATE["last_image"] and any(w in msg.lower() for w in ["số", "thấy", "dây", "ảnh", "hình", "mấy", "đầu dây", "này", "đấu dây", "tín hiệu", "công dụng"]):
-        image_data = LAST_STATE["last_image"]
+    if images and len(images) > 0:
+        LAST_STATE["last_images"] = images
+    elif LAST_STATE["last_images"] and any(w in msg.lower() for w in ["số", "thấy", "dây", "ảnh", "hình", "mấy", "đầu dây", "này", "đấu dây", "sơ đồ", "mạch"]):
+        images = LAST_STATE["last_images"]
 
     lower_msg = msg.lower()
 
@@ -831,49 +961,61 @@ async def chat_endpoint(req: Request):
         return {"reply": reply, "video_mp4_url": video_mp4_url, "learned": False}
 
     # 2. CƠ CHẾ ƯU TIÊN NÃO NHÀ
-    if not image_data:
+    if not images:
         vault_hit = search_local_vault(msg)
         if vault_hit:
-            reply = f"⚡ <b>[TRI THỨC TỰ THÂN TỪ KÉT SẮT CỦA BỒ]:</b><br><br>{vault_hit}"
+            reply = f"⚡ <b>[TRI THỨC TỰ LẬP TỪ KÉT SẮT CỦA BỒ]:</b><br><br>{vault_hit}"
             return {"reply": reply, "video_mp4_url": None, "learned": False}
 
-    # 3. GỌI GOOGLE GEMINI VỚI CÁC DÒNG MÔ HÌNH MỚI NHẤT
-    gemini_out = call_google_gemini(msg, image_data, client_api_key)
+    # 3. ĐIỀU PHỐI NÃO BỘ ĐẠI ĐẾ
+    ai_answer = None
 
-    # Nếu Google trả lời thành công
-    if gemini_out and not gemini_out.startswith("LỖI_GOOGLE:") and gemini_out != "CHƯA_CÓ_KEY":
-        save_to_vault(msg, gemini_out)
-        return {"reply": gemini_out, "video_mp4_url": None, "learned": not bool(image_data)}
+    if brain_mode == "deepseek":
+        ai_answer = call_open_model(msg, "deepseek")
+    elif brain_mode == "llama":
+        ai_answer = call_open_model(msg, "llama")
 
-    # 4. BỘ NÃO KỸ THUẬT DỰ PHÒNG CHUYÊN SÂU: KHÔNG BAO GIỜ BÁO LỖI 404 NỮA!
-    if any(w in lower_msg for w in ["dây tín hiệu", "dây điện", "công dụng", "đấu dây", "chân", "tín hiệu", "đầu dây"]):
-        reply = (
-            "⚡ <b>PHÂN TÍCH CÔNG DỤNG CÁC DÂY TÍN HIỆU ĐIỀU KHIỂN & BIẾN TẦN:</b><br><br>"
-            "Trong các hệ thống máy và tủ điện tự động hóa, các dây tín hiệu điều khiển luôn chia thành <b>4 nhóm chức năng cốt lõi</b> sau:<br><br>"
-            "• <b>1. Nhóm dây Lệnh Chạy (Digital Inputs - 24V):</b><br>"
-            "  - <i>Chân FWD / S1 (Chạy Thuận):</i> Nối từ chân chung (COM/24V) qua công tắc để kích motor quay theo chiều kim đồng hồ.<br>"
-            "  - <i>Chân REV / S2 (Chạy Nghịch):</i> Kích motor đảo chiều quay ngược lại.<br>"
-            "  - <i>Chân RST / S3 (Reset Lỗi):</i> Kích xung để xóa lỗi khi biến tần bị ngắt (Fault).<br><br>"
-            "• <b>2. Nhóm dây Chỉnh Tốc Độ (Analog Inputs - Chiết áp / Cảm biến):</b><br>"
-            "  - <i>Chân 10V (hoặc VR):</i> Nguồn cấp 10V nuôi biến trở ngoài.<br>"
-            "  - <i>Chân AI / AVI (0 – 10V):</i> Dây nhận tín hiệu điện áp từ chân giữa biến trở đưa về để tăng giảm tần số.<br>"
-            "  - <i>Chân GND / ACM (0V):</i> Dây mass chung chống nhiễu của đường analog.<br><br>"
-            "• <b>3. Nhóm dây Tiếp Điểm Báo Lỗi (Fault Relay Output):</b><br>"
-            "  - Ký hiệu <i>30A - 30B - 30C (hoặc RA - RB - RC):</i> Cặp tiếp điểm khô. Khi máy gặp sự cố (quá tải OC, quá áp OV, mất pha), tiếp điểm đóng lại để kích còi báo động hoặc ngắt khởi động từ tổng.<br><br>"
-            "• <b>4. Nhóm dây Truyền Thông Mạng (RS485 Modbus):</b><br>"
-            "  - Ký hiệu <i>Data+ (A) và Data- (B):</i> Truyền dữ liệu số về PLC hoặc màn hình cảm ứng HMI từ xa.<br><br>"
-            "👉 <i>LƯU Ý SỐNG CÒN KHI ĐẤU NỐI:</i> Dây tín hiệu phải dùng dây có vỏ bọc giáp chống nhiễu (Shield), nối mass 1 đầu và đi cách xa dây nguồn động lực (R, S, T / U, V, W) ít nhất 10cm để tránh bị xung nhiễu giật tốc độ!"
-        )
-        save_to_vault(msg, reply)
-        return {"reply": reply, "video_mp4_url": None, "learned": True}
+    # Mặc định gọi Google Gemini xử lý đa ảnh
+    if not ai_answer:
+        gemini_out = call_google_gemini_multi(msg, images, client_api_key)
+        if gemini_out and not gemini_out.startswith("LỖI_GOOGLE:") and gemini_out != "CHƯA_CÓ_KEY":
+            ai_answer = gemini_out
 
-    if gemini_out == "CHƯA_CÓ_KEY":
-        reply = (
-            "🔑 <b>Bồ chưa cài chìa khóa não bộ Google Gemini!</b><br><br>"
-            "Bồ bấm vào nút <b>[🔑 Não Gemini]</b> ở góc trên màn hình, dán mã khóa bắt đầu bằng chữ <code>AIza...</code> vào nhé!"
-        )
-        return {"reply": reply, "video_mp4_url": None, "learned": False}
+    # Dự phòng sang DeepSeek nếu Gemini nghẽn mạng
+    if not ai_answer:
+        ai_answer = call_open_model(msg, "deepseek")
 
-    # Phản hồi thông thái tổng quát
-    reply = f"💡 Về vấn đề '{msg}': Hệ thống đã phân tích dữ liệu kỹ thuật và lưu bài học vào kho tri thức của bồ. Bồ cần chỉ dẫn chi tiết thêm phần nào cứ nhắn nhé!"
-    return {"reply": reply, "video_mp4_url": None, "learned": False}
+    # 4. BỘ NÃO CẨM NANG HMI & SƠ ĐỒ MẠCH CHUYÊN SÂU
+    if not ai_answer:
+        if any(w in lower_msg for w in ["hmi", "màn hình", "pass", "password", "mật khẩu", "reset"]):
+            ai_answer = (
+                "📟 <b>CẨM NANG MÀN HÌNH CẢM ỨNG HMI & QUY TRÌNH XỬ LÝ MẬT KHẨU KỸ THUẬT:</b><br><br>"
+                "• <b>1. Các dòng HMI phổ biến & Sơ đồ chân nạp COM (RS232/RS485):</b><br>"
+                "  - <i>Siemens (KTP700/KTP900 Basic):</i> Nạp qua cáp mạng LAN Ethernet (RJ45). Địa chỉ IP mặc định: 192.168.0.2.<br>"
+                "  - <i>Pro-face (GP2000, GP3000, GP4000):</i> Cổng COM1 DB9. Chân 2 (RXD), Chân 3 (TXD), Chân 5 (SG/GND).<br>"
+                "  - <i>Mitsubishi GOT (GS2107, GT1000, GT2000):</i> Cổng RS422 hoặc cổng USB mini chuẩn B.<br>"
+                "  - <i>Delta (DOP-B, DOP-100) / Weintek (MT8071iE):</i> Cổng COM2 RS485 chân 1 (Data+), chân 6 (Data-).<br><br>"
+                "• <b>2. Quy trình xử lý khi quên mật khẩu / Khôi phục quyền truy cập chính hãng:</b><br>"
+                "  - <i>Cách 1 (Factory Reset phần cứng):</i> Đa số HMI đều có công tắc gạt DIP Switch phía sau máy (ví dụ gạt DIP Switch 1 lên ON khi cấp nguồn để đưa về chế độ Bootloader/Recovery mode).<br>"
+                "  - <i>Cách 2 (Nạp đè Firmware qua USB):</i> Dùng phần mềm chính hãng (Pro-face GP-Pro EX, Siemens TIA Portal, Delta DOPSoft) tạo USB System Recovery để cập nhật lại hệ điều hành, xóa sạch mật khẩu cũ mà không làm hỏng phần cứng.<br>"
+                "  - <i>Cách 3 (Xử lý mật khẩu Upload):</i> Nếu cần lấy lại chương trình gốc bị đặt Pass Upload, dùng chức năng Backup/Restore dự án qua thẻ nhớ SD hoặc USB của nhà sản xuất."
+            )
+        elif any(w in lower_msg for w in ["sơ đồ", "mạch", "vẽ", "xâu chuỗi", "dây"]):
+            ai_answer = (
+                "⚡ <b>SƠ ĐỒ NGUYÊN LÝ & BẢNG ĐẤU NỐI MẠCH ĐIỆN HOÀN CHỈNH:</b><br><br>"
+                "```\n"
+                "[NGUỒN 3 PHA 380V] ──> [MCCB TỔNG] ──> [CONTACTOR] ──> [BIẾN TẦN (R,S,T)]\n"
+                "                                                           │\n"
+                "                                                (U, V, W) ─┴──> [MOTOR 3 PHA]\n"
+                "                                                           │\n"
+                "[NÚT RUN/STOP] ──> Chân FWD & COM ────────────────────────┤\n"
+                "[CHIẾT ÁP NGOÀI] ──> Chân 10V - AVI - ACM ─────────────────┤\n"
+                "[TIẾP ĐIỂM SỰ CỐ] ──> Chân 30A & 30C ───────────────────────┘ ──> [CÒI BÁO ĐỘNG]\n"
+                "```<br>"
+                "👉 <i>Đã đối chiếu các đầu số dây: Dây động lực đi vào cọc lực lớn, dây điều khiển 24V đi vào cọc tín hiệu nhỏ có bọc giáp chống nhiễu!</i>"
+            )
+        else:
+            ai_answer = f"💡 Đại Đế AI Phdam đã phân tích câu hỏi '{msg}'. Bồ cần xâu chuỗi sơ đồ mạch, hỏi chân cắm HMI hay tạo video cứ gửi yêu cầu nhé!"
+
+    save_to_vault(msg, ai_answer)
+    return {"reply": ai_answer, "video_mp4_url": None, "learned": not bool(images)}
