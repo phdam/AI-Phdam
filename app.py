@@ -42,7 +42,8 @@ def ask_superhuman_brain(prompt: str, context: str, has_media: bool = False, med
         "2. ĐIỀU KHIỂN TỪ XA & IOT: Vi điều khiển (ESP32, STM32), truyền thông Modbus RTU/TCP, MQTT, LoRa, sóng RF, điều khiển qua Internet.\n"
         "3. MẠNG KHÔNG DÂY: Wi-Fi 6, 5G/4G công nghiệp, Zigbee, Bluetooth Mesh, bảo mật mạng.\n"
         "4. CƠ ĐIỆN TỬ & BIẾN TẦN: Đấu nối dây lực, dây điều khiển, cài đặt thông số chạy thuận/nghịch, biến trở ngoài, bảo vệ quá dòng, quá áp, mất pha.\n"
-        "5. TỔNG HỢP TRI THỨC TOÀN NĂNG: Giải bài toán kỹ thuật, lập trình, tính toán logic và đời sống.\n\n"
+        "5. CÔNG NGHỆ VIDEO AI & ĐA PHƯƠNG THỨC: Phân tích hình ảnh, video, công nghệ motion transfer, deepfake, tổng hợp giọng nói.\n"
+        "6. TỔNG HỢP TRI THỨC TOÀN NĂNG: Giải bài toán kỹ thuật, lập trình, tính toán logic và đời sống.\n\n"
         f"KHO TRI THỨC VÀ ĐÍNH CHÍNH:\n{context}\n"
         f"{media_info}\n"
         "Phong thái: Đẳng cấp, siêu thông thái, tư duy mạch lạc, trả lời rõ ràng từng bước (step-by-step), chính xác từng thông số kỹ thuật và cực kỳ thân thiện với người dùng."
@@ -111,7 +112,7 @@ HTML_PAGE = """
             flex: 1;
         }
 
-        /* Header Cố Định */
+        /* Header */
         .header {
             position: sticky;
             top: 0;
@@ -257,6 +258,28 @@ HTML_PAGE = """
             gap: 6px;
             width: 100%;
         }
+        
+        /* Nút [+] dùng thẻ label: bấm là mở trực tiếp 100% */
+        .btn-icon-label {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #38bdf8;
+            width: 36px;
+            height: 42px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: bold;
+            cursor: pointer;
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .btn-icon-label:active {
+            background: rgba(56, 189, 248, 0.2);
+        }
+
         .btn-icon {
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.15);
@@ -272,7 +295,6 @@ HTML_PAGE = """
             flex-shrink: 0;
         }
         
-        /* Ô nhập câu hỏi: min-width: 0 giúp tự co giãn không bị tràn */
         .chat-input {
             flex: 1;
             min-width: 0;
@@ -288,7 +310,7 @@ HTML_PAGE = """
             color: #64748b;
         }
 
-        /* NÚT ENTER GỌN GÀNG, KHÔNG BỊ TRÀN */
+        /* Nút ENTER */
         .btn-enter {
             background: linear-gradient(135deg, #10b981, #06b6d4);
             color: #ffffff;
@@ -324,7 +346,7 @@ HTML_PAGE = """
         <div class="header">
             <div class="header-title">
                 <h1>⚡ SIÊU NHÂN AI PHDAM</h1>
-                <p>Tự động hóa • IoT • Biến tần • Mạng không dây</p>
+                <p>Tự động hóa • IoT • Biến tần • Video AI</p>
             </div>
             <div class="header-actions">
                 <button class="btn-tool" onclick="document.getElementById('bgInput').click()">🖼️ Đổi nền</button>
@@ -336,7 +358,7 @@ HTML_PAGE = """
         <div class="chat-stream" id="chatStream">
             <div class="msg bot">
                 Chào bồ! Tôi là <b>Siêu Nhân Trí Tuệ Nhân Tạo AI Phdam</b>.<br><br>
-                Bồ có thể bấm <b>dấu [+]</b> để tải ảnh/video/tài liệu, hoặc nhập câu hỏi rồi bấm nút <b>ENTER ↵</b> để tôi giải đáp nhé!
+                Bồ chạm vào <b>dấu [+]</b> để chọn ảnh/video từ máy, hoặc nhập câu hỏi rồi bấm nút <b>ENTER ↵</b> để tôi giải đáp nhé!
                 <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">🔊</button>
             </div>
         </div>
@@ -354,18 +376,18 @@ HTML_PAGE = """
     <!-- KHUNG NHẬP CỐ ĐỊNH Ở ĐÁY MÀN HÌNH -->
     <div class="bottom-bar">
         <form class="bottom-bar-inner" onsubmit="event.preventDefault(); sendPayload();">
-            <!-- Nút [+] (Tải ảnh, video, camera hoặc tệp) -->
-            <button type="button" class="btn-icon" onclick="document.getElementById('fileInput').click()" title="Tải ảnh/video/tệp">+</button>
+            <!-- Nút [+] dạng label gốc: Bấm phát ăn ngay 100% trên mọi điện thoại -->
+            <label for="fileInput" class="btn-icon-label" title="Tải ảnh, video, tệp">+</label>
             <input type="file" id="fileInput" accept="image/*,video/*,.txt,.pdf" onchange="handleFileSelected(event)">
 
-            <!-- Ô nhập câu hỏi đã được làm gọn, không tràn lề -->
+            <!-- Ô nhập câu hỏi không bị tràn lề -->
             <input type="text" id="chatInput" class="chat-input" placeholder="Nhập câu hỏi..." autocomplete="off">
 
             <!-- Nút [🎙️] Micro -->
             <button type="button" class="btn-icon" id="micBtn" onclick="toggleMic()" title="Nói tiếng Việt">🎙️</button>
 
-            <!-- NÚT ENTER GỌN GÀNG, VỪA VẶN MỌI MÀN HÌNH -->
-            <button type="submit" class="btn-enter" title="Bấm gửi hoặc chạy">ENTER ↵</button>
+            <!-- NÚT ENTER -->
+            <button type="submit" class="btn-enter" title="Gửi tin nhắn">ENTER ↵</button>
         </form>
     </div>
 
@@ -444,7 +466,6 @@ HTML_PAGE = """
 
             const stream = document.getElementById('chatStream');
 
-            // 1. Hiển thị câu hỏi của người dùng
             let userHtml = `<div class="msg user">`;
             if (currentAttach) {
                 if (currentAttach.type.startsWith('video')) {
@@ -464,12 +485,10 @@ HTML_PAGE = """
             inp.value = '';
             removeAttachment();
 
-            // 2. Trạng thái Siêu Nhân AI đang phân tích
             const tempId = 'bot_temp_' + Date.now();
             stream.innerHTML += `<div class="msg bot" id="${tempId}">⚡ Siêu Nhân AI đang vận hành tư duy đa tầng...</div>`;
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
-            // 3. Gửi lên máy chủ
             try {
                 const res = await fetch('/api/chat', {
                     method: 'POST',
@@ -489,7 +508,7 @@ HTML_PAGE = """
                 if (d.speak) speakText(d.reply);
             } catch (err) {
                 const tempBox = document.getElementById(tempId);
-                tempBox.innerHTML = `⚠️ Máy chủ đang quá tải xử lý, bồ bấm ENTER lại lần nữa nhé!`;
+                tempBox.innerHTML = `⚠️ Máy chủ đang bận xử lý, bồ bấm ENTER lại nhé!`;
             }
         }
 
@@ -539,7 +558,6 @@ async def chat_endpoint(req: Request):
     media_type = data.get("media_type", "")
     mems = get_memory()
 
-    # 1. Tự sửa sai khi phát hiện đính chính
     wrong_triggers = ["sai rồi", "nhầm rồi", "không phải", "đâu phải"]
     if any(t in msg.lower() for t in wrong_triggers):
         fix_info = re.sub(r'^(sai rồi|nhầm rồi|không phải|đâu phải)[,.]*\s*', '', msg, flags=re.IGNORECASE)
@@ -553,7 +571,6 @@ async def chat_endpoint(req: Request):
             "speak": True
         }
 
-    # 2. Tự học chủ động (Active Learning)
     learn_triggers = ["hãy nhớ:", "hãy nhớ là", "ghi nhớ:", "ghi nhớ nhé:", "nhớ kỹ:"]
     for p in learn_triggers:
         if msg.lower().startswith(p):
@@ -568,7 +585,6 @@ async def chat_endpoint(req: Request):
                 "speak": True
             }
 
-    # 3. Tra cứu Kho Tri Thức RAG
     context_docs = []
     keywords = [w for w in msg.lower().split() if len(w) > 2]
     for m in mems:
@@ -578,7 +594,6 @@ async def chat_endpoint(req: Request):
 
     context_str = "\n".join(context_docs[:4]) if context_docs else "Kho dữ liệu công nghệ sẵn sàng."
 
-    # 4. Kích hoạt Não Siêu Nhân
     effective_prompt = msg if msg else f"Hãy phân tích và đưa ra đánh giá kỹ thuật chuyên sâu về tệp tin {media_type} vừa được gửi lên."
     reply = ask_superhuman_brain(effective_prompt, context_str, has_media, media_type)
     
