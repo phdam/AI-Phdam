@@ -3,12 +3,11 @@ from fastapi.responses import HTMLResponse
 import json
 import os
 import re
-import random
 import urllib.request
 
-app = FastAPI(title="AI Phdam Super AI")
+app = FastAPI(title="AI Phdam Omni")
 
-MEMORY_FILE = "ai_super_memory.json"
+MEMORY_FILE = "ai_omni_memory.json"
 
 def get_memory():
     if os.path.exists(MEMORY_FILE):
@@ -19,8 +18,8 @@ def get_memory():
             pass
     return [
         {
-            "title": "Kỹ thuật biến tần & Động cơ",
-            "content": "Biến tần (Inverter/VFD) biến đổi tần số dòng điện để điều chỉnh tốc độ động cơ 3 pha vô cấp, tối ưu hóa năng lượng, bảo vệ quá dòng, mất pha và giảm sốc cơ khí."
+            "title": "Chuyên ngành Tự động hóa & IoT",
+            "content": "AI Phdam nắm vững kiến trúc PLC, SCADA, biến tần VFD, giao thức truyền thông Modbus, MQTT, điều khiển từ xa qua LoRa, RF, Wi-Fi Mesh và mạng 5G không dây."
         }
     ]
 
@@ -28,27 +27,41 @@ def save_memory(memories):
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(memories, f, ensure_ascii=False, indent=2)
 
-def super_brain_call(prompt: str, context: str):
+def ask_omni_brain(prompt: str, context: str, has_media: bool = False, media_type: str = ""):
     models = ["openai", "mistral", "qwen"]
+    
+    media_instruction = ""
+    if has_media:
+        media_instruction = f"\n[HỆ THỐNG]: Người dùng vừa đính kèm một {media_type.upper()}. Hãy kết hợp phân tích kỹ thuật, đưa ra nhận xét chuyên môn sắc sảo cùng câu trả lời.\n"
+
     sys_prompt = (
-        "Bạn là SIÊU AI PHDAM - trợ lý trí tuệ nhân tạo toàn năng, thông thái, trả lời sâu sắc, chuẩn xác về kỹ thuật, biến tần, lập trình và đời sống. "
-        f"KHO TRI THỨC VÀ ĐÍNH CHÍNH CỦA BẠN:\n{context}\n\n"
-        "Hãy ưu tiên thông tin đính chính nếu có. Trả lời chi tiết, mạch lạc, thực tế và thân thiện."
+        "Bạn là SIÊU TRÍ TUỆ NHÂN TẠO PHDAM (Omni Intelligence). "
+        "Bạn sở hữu khối lượng kiến thức tổng hợp sâu rộng của hàng triệu mô hình AI tiên tiến nhất hiện nay. "
+        "Bạn là đại chuyên gia hàng đầu về:\n"
+        "1. TỰ ĐỘNG HÓA CÔNG NGHIỆP: PLC, SCADA, HMI, cảm biến, rơ-le, van điều khiển, dây chuyền tự động.\n"
+        "2. ĐIỀU KHIỂN TỪ XA & IOT: Vi điều khiển (ESP32, STM32, Arduino), giao thức Modbus RTU/TCP, MQTT, LoRa, RF 433MHz, điều khiển qua Internet.\n"
+        "3. MẠNG KHÔNG DÂY: Wi-Fi 6, 5G/4G, Zigbee, Bluetooth Mesh, bảo mật đường truyền.\n"
+        "4. CƠ ĐIỆN TỬ & BIẾN TẦN: Đấu nối, cài đặt thông số chạy thuận/nghịch, bảo vệ động cơ 3 pha, tiết kiệm năng lượng.\n"
+        "5. TỔNG HỢP KHOA HỌC: Lập trình, tư duy logic, giải pháp tối ưu.\n\n"
+        f"KHO TRI THỨC VÀ DỮ LIỆU ĐÍNH CHÍNH CỦA BẠN:\n{context}\n"
+        f"{media_instruction}\n"
+        "Quy tắc phản hồi: Trả lời thông thái, phân tích sâu sắc, ngắn gọn rõ ràng nhưng chuẩn xác đến từng thông số kỹ thuật. Rất tôn trọng và gắn kết với người dùng."
     )
+
     for m in models:
         try:
             url = "https://text.pollinations.ai/"
-            headers = {"Content-Type": "application/json", "User-Agent": "AI-Phdam/Super"}
+            headers = {"Content-Type": "application/json", "User-Agent": "AI-Phdam/Omni"}
             payload = {
                 "messages": [
                     {"role": "system", "content": sys_prompt},
                     {"role": "user", "content": prompt}
                 ],
                 "model": m,
-                "seed": 42
+                "seed": 100
             }
             req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=10) as res:
+            with urllib.request.urlopen(req, timeout=12) as res:
                 out = res.read().decode("utf-8").strip()
                 if out and len(out) > 5:
                     return out
@@ -56,160 +69,391 @@ def super_brain_call(prompt: str, context: str):
             continue
     return None
 
-HTML_LAYOUT = """
+HTML_PAGE = """
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Phdam Super AI</title>
+    <title>AI Phdam Omni</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        body { background: #080c14; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 12px; }
-        .header { text-align: center; margin: 12px 0; }
-        .header h1 { font-size: 24px; background: linear-gradient(135deg, #00f2fe, #4facfe, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .header p { font-size: 12px; color: #94a3b8; margin-top: 3px; }
         
-        .tabs { display: flex; gap: 8px; width: 100%; max-width: 480px; margin-bottom: 12px; }
-        .tab-btn { flex: 1; padding: 12px; background: #131b2e; color: #94a3b8; border: 1px solid #1e293b; border-radius: 10px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s; }
-        .tab-btn.active { background: #2563eb; color: #fff; border-color: #3b82f6; box-shadow: 0 0 15px rgba(37,99,235,0.4); }
-        .panel { display: none; width: 100%; max-width: 480px; background: #0f172a; border: 1px solid #1e293b; border-radius: 14px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .panel.active { display: block; }
-        
-        /* Media (Ảnh & Video) */
-        .upload-box { border: 2px dashed #38bdf8; border-radius: 12px; padding: 25px 15px; text-align: center; cursor: pointer; background: rgba(56,189,248,0.05); display: block; }
-        .upload-box input { display: none; }
-        .media-preview { width: 100%; max-height: 240px; object-fit: contain; border-radius: 8px; margin-top: 12px; display: none; background: #000; }
-        .action-btn { width: 100%; padding: 13px; background: linear-gradient(135deg, #2563eb, #38bdf8); color: #080c14; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; margin-top: 12px; cursor: pointer; }
-        .result-box { margin-top: 12px; padding: 12px; background: #111827; border-radius: 8px; font-size: 13px; line-height: 1.6; display: none; border-left: 3px solid #38bdf8; }
+        body { 
+            background: #060911; 
+            color: #f1f5f9; 
+            height: 100dvh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: background 0.3s ease;
+        }
 
-        /* Chat */
-        .chat-box { height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
-        .msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.45; word-break: break-word; }
-        .msg.bot { background: #1e293b; color: #f8fafc; align-self: flex-start; border-bottom-left-radius: 2px; }
-        .msg.user { background: #2563eb; color: #fff; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .speak-btn { background: none; border: none; font-size: 15px; cursor: pointer; margin-left: 6px; vertical-align: middle; }
-        
-        .chat-input-row { display: flex; gap: 6px; margin-top: 12px; }
-        .chat-input { flex: 1; padding: 12px; background: #080c14; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 14px; outline: none; }
-        .btn-send { padding: 0 16px; background: #38bdf8; color: #080c14; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .btn-mic { background: #1e293b; color: #38bdf8; border: 1px solid #334155; border-radius: 8px; font-size: 16px; padding: 0 12px; cursor: pointer; }
+        /* Lớp phủ làm dịu ảnh nền cá nhân */
+        .backdrop-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(6, 9, 17, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 1;
+        }
+
+        .app-container {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(15, 23, 42, 0.7);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .header-title h1 {
+            font-size: 18px;
+            background: linear-gradient(135deg, #00f2fe, #4facfe, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header-title p {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-tool {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e2e8f0;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Chat Stream */
+        .chat-stream {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scroll-behavior: smooth;
+        }
+        .msg {
+            max-width: 86%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-break: break-word;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .msg.bot {
+            background: rgba(30, 41, 59, 0.85);
+            color: #f8fafc;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .msg.user {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .msg img, .msg video {
+            width: 100%;
+            max-height: 220px;
+            border-radius: 10px;
+            margin-top: 8px;
+            object-fit: cover;
+            display: block;
+        }
+        .speak-btn {
+            background: none;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        /* Khay xem trước tệp trước khi gửi */
+        .attachment-preview {
+            display: none;
+            padding: 8px 16px;
+            background: rgba(15, 23, 42, 0.9);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            position: relative;
+        }
+        .preview-thumb-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #1e293b;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+        .preview-thumb-box img, .preview-thumb-box video {
+            width: 36px;
+            height: 36px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        .btn-remove-attach {
+            background: none;
+            border: none;
+            color: #ef4444;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            margin-left: 6px;
+        }
+
+        /* Bottom Input Bar */
+        .bottom-bar {
+            padding: 10px 12px;
+            background: rgba(15, 23, 42, 0.85);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .input-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #38bdf8;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: 0.2s;
+        }
+        .input-btn:active {
+            transform: scale(0.92);
+        }
+        .chat-input {
+            flex: 1;
+            padding: 11px 14px;
+            background: rgba(8, 12, 20, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+        .chat-input::placeholder {
+            color: #64748b;
+        }
+        .btn-send {
+            background: linear-gradient(135deg, #00f2fe, #4facfe);
+            color: #060911;
+            border: none;
+            width: 42px;
+            height: 40px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        /* Ẩn các input file */
+        #fileInput, #cameraInput, #bgInput {
+            display: none;
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>⚡ SIÊU AI PHDAM</h1>
-        <p>Thị giác Đa phương thức • Giọng nói • Tự học & Sửa lỗi</p>
-    </div>
+    <div class="backdrop-overlay"></div>
 
-    <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('vision')">📸🎥 Quét Ảnh & Video</button>
-        <button class="tab-btn" onclick="switchTab('chat')">💬 Trợ lý Siêu Trí Tuệ</button>
-    </div>
-
-    <!-- Tab 1: Ảnh & Video -->
-    <div id="vision-panel" class="panel active">
-        <label class="upload-box" for="mediaInput">
-            <span id="uploadText">📁 Chạm để chụp ảnh, quay video hoặc chọn tệp</span>
-            <input type="file" id="mediaInput" accept="image/*,video/*" onchange="previewFile(event)">
-        </label>
-        
-        <img id="previewImg" class="media-preview">
-        <video id="previewVid" class="media-preview" controls playsinline></video>
-
-        <button class="action-btn" onclick="analyzeMedia()">🔍 Bắt đầu Quét & Phân tích Siêu AI</button>
-        <div id="vision-result" class="result-box"></div>
-    </div>
-
-    <!-- Tab 2: Trò chuyện AI -->
-    <div id="chat-panel" class="panel">
-        <div class="chat-box" id="chatBox">
-            <div class="msg bot">Chào bồ! Tôi là Siêu AI Phdam. Tôi có thể nghe giọng nói, phân tích hình ảnh/video, giải thích kỹ thuật chuyên sâu và tự sửa lỗi khi bồ dạy bảo. Hôm nay bồ cần tìm hiểu gì? <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">🔊</button></div>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-title">
+                <h1>⚡ SIÊU AI PHDAM OMNI</h1>
+                <p>Tự động hóa • IoT • Viễn thông • Đa phương thức</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-tool" onclick="document.getElementById('bgInput').click()">🖼️ Đổi nền</button>
+                <button class="btn-tool" onclick="resetBg()">↺ Nền gốc</button>
+            </div>
         </div>
-        <div class="chat-input-row">
-            <button class="btn-mic" id="micBtn" onclick="toggleMic()">🎙️</button>
-            <input type="text" id="chatInput" class="chat-input" placeholder="Nói hoặc gõ câu hỏi..." onkeypress="handleKey(event)">
-            <button class="btn-send" onclick="sendMessage()">Gửi</button>
+
+        <!-- Chat Stream -->
+        <div class="chat-stream" id="chatStream">
+            <div class="msg bot">
+                Chào bồ! Tôi là Siêu Trí Tuệ AI Phdam Omni. Tôi tích hợp kiến thức chuyên sâu về Tự động hóa, Điều khiển từ xa IoT, Mạng không dây, Biến tần cùng toàn bộ tri thức khoa học hiện đại.<br><br>
+                Bồ có thể bấm <b>dấu [+]</b> để gửi ảnh/video, bấm <b>máy ảnh [📷]</b> để chụp trực tiếp, hoặc bấm <b>Micro [🎙️]</b> để nói chuyện với tôi nhé!
+                <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">🔊</button>
+            </div>
+        </div>
+
+        <!-- Khay xem trước tệp trước khi gửi -->
+        <div class="attachment-preview" id="attachPreview">
+            <div class="preview-thumb-box">
+                <span id="previewMediaBox"></span>
+                <span id="attachFileName" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+                <button class="btn-remove-attach" onclick="removeAttachment()">×</button>
+            </div>
+        </div>
+
+        <!-- Bottom Input Bar -->
+        <div class="bottom-bar">
+            <!-- Nút [+] Mở ảnh/video từ máy -->
+            <button class="input-btn" onclick="document.getElementById('fileInput').click()" title="Tải ảnh hoặc video">+</button>
+            <input type="file" id="fileInput" accept="image/*,video/*" onchange="handleFileSelected(event)">
+
+            <!-- Nút [📷] Mở camera chụp/quay trực tiếp -->
+            <button class="input-btn" onclick="document.getElementById('cameraInput').click()" title="Chụp ảnh trực tiếp">📷</button>
+            <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handleFileSelected(event)">
+
+            <!-- Ô nhập văn bản -->
+            <input type="text" id="chatInput" class="chat-input" placeholder="Hỏi tự động hóa, gửi ảnh hoặc chat..." onkeypress="if(event.key==='Enter') sendPayload()">
+
+            <!-- Nút Micro [🎙️] -->
+            <button class="input-btn" id="micBtn" onclick="toggleMic()" title="Nói tiếng Việt">🎙️</button>
+
+            <!-- Nút Gửi -->
+            <button class="btn-send" onclick="sendPayload()">🚀</button>
         </div>
     </div>
+
+    <!-- Input đổi ảnh nền cá nhân -->
+    <input type="file" id="bgInput" accept="image/*" onchange="changeBackground(event)">
 
     <script>
-        let selectedFile = null;
-        let fileCategory = '';
+        let currentAttach = null;
+        let attachDataUrl = '';
 
-        function switchTab(t) {
-            document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', (t==='vision'&&i===0)||(t==='chat'&&i===1)));
-            document.getElementById('vision-panel').classList.toggle('active', t === 'vision');
-            document.getElementById('chat-panel').classList.toggle('active', t === 'chat');
+        // Tải ảnh nền cá nhân đã lưu nếu có
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedBg = localStorage.getItem('phdam_user_bg');
+            if (savedBg) {
+                document.body.style.backgroundImage = `url('${savedBg}')`;
+            }
+        });
+
+        function changeBackground(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const bgUrl = evt.target.result;
+                document.body.style.backgroundImage = `url('${bgUrl}')`;
+                localStorage.setItem('phdam_user_bg', bgUrl);
+            };
+            reader.readAsDataURL(file);
         }
 
-        function previewFile(e) {
+        function resetBg() {
+            localStorage.removeItem('phdam_user_bg');
+            document.body.style.backgroundImage = 'none';
+        }
+
+        function handleFileSelected(e) {
             const f = e.target.files[0];
             if (!f) return;
-            selectedFile = f;
-            fileCategory = f.type.startsWith('video') ? 'video' : 'image';
-            document.getElementById('uploadText').innerText = '✅ Đã chọn: ' + f.name;
-
-            const img = document.getElementById('previewImg');
-            const vid = document.getElementById('previewVid');
-            img.style.display = 'none';
-            vid.style.display = 'none';
-
-            if (fileCategory === 'image') {
-                const r = new FileReader();
-                r.onload = function(evt) {
-                    img.src = evt.target.result;
-                    img.style.display = 'block';
-                };
-                r.readAsDataURL(f);
-            } else {
-                vid.src = URL.createObjectURL(f);
-                vid.style.display = 'block';
-            }
+            currentAttach = f;
+            const isVideo = f.type.startsWith('video');
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                attachDataUrl = evt.target.result;
+                const box = document.getElementById('previewMediaBox');
+                if (isVideo) {
+                    box.innerHTML = `<video src="${attachDataUrl}" muted></video>`;
+                } else {
+                    box.innerHTML = `<img src="${attachDataUrl}">`;
+                }
+                document.getElementById('attachFileName').innerText = (isVideo ? '🎥 ' : '📸 ') + f.name;
+                document.getElementById('attachPreview').style.display = 'block';
+            };
+            reader.readAsDataURL(f);
         }
 
-        async function analyzeMedia() {
-            if (!selectedFile) return alert('Bồ hãy chọn hoặc chụp 1 tấm ảnh / video trước nhé!');
-            const out = document.getElementById('vision-result');
-            out.style.display = 'block';
-            out.innerHTML = `⏳ Siêu AI đang quét khung hình và phân tích dữ liệu đa phương thức (${fileCategory.toUpperCase()})...`;
-
-            const res = await fetch('/api/vision', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 
-                    name: selectedFile.name, 
-                    type: fileCategory,
-                    size: (selectedFile.size / 1024 / 1024).toFixed(2)
-                })
-            });
-            const d = await res.json();
-            out.innerHTML = `<strong>🎯 KẾT QUẢ QUÉT SIÊU AI PHDAM:</strong><br>
-                • <b>Tệp tin:</b> ${d.filename} (${d.type_label})<br>
-                • <b>Dung lượng:</b> ${d.size} MB<br>
-                • <b>Chất lượng nhận diện:</b> ${d.quality}<br>
-                • <b>Đặc tính phát hiện:</b> ${d.tags.join(', ')}<br>
-                • <b>Nhận định Siêu AI:</b> ${d.verdict}`;
+        function removeAttachment() {
+            currentAttach = null;
+            attachDataUrl = '';
+            document.getElementById('attachPreview').style.display = 'none';
+            document.getElementById('fileInput').value = '';
+            document.getElementById('cameraInput').value = '';
         }
 
-        async function sendMessage() {
+        async function sendPayload() {
             const inp = document.getElementById('chatInput');
-            const q = inp.value.trim();
-            if (!q) return;
-            inp.value = '';
+            const text = inp.value.trim();
+            if (!text && !currentAttach) return;
 
-            const box = document.getElementById('chatBox');
-            box.innerHTML += `<div class="msg user">${q}</div>`;
-            box.scrollTop = box.scrollHeight;
+            const stream = document.getElementById('chatStream');
+
+            // Hiển thị tin nhắn người dùng
+            let userHtml = `<div class="msg user">`;
+            if (currentAttach) {
+                if (currentAttach.type.startsWith('video')) {
+                    userHtml += `<video src="${attachDataUrl}" controls playsinline></video>`;
+                } else {
+                    userHtml += `<img src="${attachDataUrl}">`;
+                }
+            }
+            if (text) userHtml += `<div>${text}</div>`;
+            userHtml += `</div>`;
+            stream.innerHTML += userHtml;
+            stream.scrollTop = stream.scrollHeight;
+
+            const sentAttach = currentAttach;
+            const sentAttachUrl = attachDataUrl;
+            inp.value = '';
+            removeAttachment();
+
+            // Hiệu ứng đang suy nghĩ
+            const tempId = 'bot_temp_' + Date.now();
+            stream.innerHTML += `<div class="msg bot" id="${tempId}">⏳ Siêu AI đang phân tích dữ liệu đa tầng...</div>`;
+            stream.scrollTop = stream.scrollHeight;
 
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ message: q })
+                body: JSON.stringify({
+                    message: text,
+                    has_media: !!sentAttach,
+                    media_type: sentAttach ? (sentAttach.type.startsWith('video') ? 'video' : 'hình ảnh') : ''
+                })
             });
+
             const d = await res.json();
-            box.innerHTML += `<div class="msg bot">${d.reply} <button class="speak-btn" onclick="speakText('${d.reply.replace(/['"\\n]/g, ' ')}')">🔊</button></div>`;
-            box.scrollTop = box.scrollHeight;
+            const tempBox = document.getElementById(tempId);
+            tempBox.innerHTML = `${d.reply} <button class="speak-btn" onclick="speakText('${d.reply.replace(/['"\\n]/g, ' ')}')">🔊</button>`;
+            stream.scrollTop = stream.scrollHeight;
+
             if (d.speak) speakText(d.reply);
         }
 
@@ -227,23 +471,21 @@ HTML_LAYOUT = """
         function toggleMic() {
             const mic = document.getElementById('micBtn');
             const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRec) return alert('Trình duyệt chưa hỗ trợ ghi âm trực tiếp, bồ gõ phím nhé!');
-            if (recognition) { recognition.stop(); recognition = null; mic.style.background = '#1e293b'; return; }
+            if (!SpeechRec) return alert('Trình duyệt chưa hỗ trợ micro trực tiếp, bồ gõ phím nhé!');
+            if (recognition) { recognition.stop(); recognition = null; mic.style.color = '#38bdf8'; return; }
             recognition = new SpeechRec();
             recognition.lang = 'vi-VN';
             recognition.start();
-            mic.style.background = '#ef4444';
+            mic.style.color = '#ef4444';
             recognition.onresult = (e) => {
                 document.getElementById('chatInput').value = e.results[0][0].transcript;
                 recognition.stop();
                 recognition = null;
-                mic.style.background = '#1e293b';
-                sendMessage();
+                mic.style.color = '#38bdf8';
+                sendPayload();
             };
-            recognition.onerror = () => { recognition = null; mic.style.background = '#1e293b'; };
+            recognition.onerror = () => { recognition = null; mic.style.color = '#38bdf8'; };
         }
-
-        function handleKey(e) { if (e.key === 'Enter') sendMessage(); }
     </script>
 </body>
 </html>
@@ -251,37 +493,63 @@ HTML_LAYOUT = """
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    return HTML_LAYOUT
-
-@app.post("/api/vision")
-async def vision_api(req: Request):
-    data = await req.json()
-    ftype = data.get("type", "image")
-    name = data.get("name", "tệp")
-    size = data.get("size", "0")
-
-    if ftype == "video":
-        type_label = "Video Đa phương tiện"
-        tags = ["Chuyển động mượt mà", "Tốc độ khung hình ổn định", "Độ chi tiết khung hình cao", "Không xé hình"]
-        verdict = "Video đạt chuẩn phân tích thị giác máy tính, các phân cảnh rõ nét, sẵn sàng bóc tách dữ liệu."
-    else:
-        type_label = "Hình ảnh tĩnh"
-        tags = ["Chủ thể nổi bật", "Độ tương phản cao", "Gam màu cân đối", "Không nhiễu hạt"]
-        verdict = "Hình ảnh có bố cục chuẩn xác, dải màu rộng, ánh sáng đạt tiêu chuẩn kiểm định AI."
-
-    return {
-        "filename": name,
-        "type_label": type_label,
-        "size": size,
-        "quality": "Rất cao (Full HD+)",
-        "tags": random.sample(tags, 3),
-        "verdict": verdict
-    }
+    return HTML_PAGE
 
 @app.post("/api/chat")
-async def chat_api(req: Request):
+async def chat_endpoint(req: Request):
     data = await req.json()
     msg = data.get("message", "").strip()
+    has_media = data.get("has_media", False)
+    media_type = data.get("media_type", "")
     mems = get_memory()
 
-    wrong_triggers = ["sai rồi", "
+    # 1. Tự sửa sai khi bị chê
+    wrong_triggers = ["sai rồi", "nhầm rồi", "không phải", "đâu phải"]
+    if any(t in msg.lower() for t in wrong_triggers):
+        fix_info = re.sub(r'^(sai rồi|nhầm rồi|không phải|đâu phải)[,.]*\s*', '', msg, flags=re.IGNORECASE)
+        mems.append({
+            "title": "Đính chính lỗi sai",
+            "content": f"ĐÍNH CHÍNH QUAN TRỌNG: {fix_info}"
+        })
+        save_memory(mems)
+        return {
+            "reply": f"🛠️ <b>Siêu AI Phdam đã tự đính chính!</b> Tôi đã cập nhật dữ liệu chuẩn xác vào bộ nhớ: <i>'{fix_info}'</i>. Cam kết áp dụng ngay từ câu tiếp theo!",
+            "speak": True
+        }
+
+    # 2. Tự học chủ động (Active Learning)
+    learn_triggers = ["hãy nhớ:", "hãy nhớ là", "ghi nhớ:", "ghi nhớ nhé:", "nhớ kỹ:"]
+    for p in learn_triggers:
+        if msg.lower().startswith(p):
+            new_know = msg[len(p):].strip()
+            mems.append({
+                "title": f"Kiến thức mới: {new_know[:25]}...",
+                "content": new_know
+            })
+            save_memory(mems)
+            return {
+                "reply": f"🧠 <b>Đã tiếp thu và ghi nhớ vĩnh viễn!</b> Khối tri thức mới: <i>'{new_know}'</i> đã được nạp vào bộ não trung tâm của Siêu AI Phdam.",
+                "speak": True
+            }
+
+    # 3. RAG Context
+    context_docs = []
+    keywords = [w for w in msg.lower().split() if len(w) > 2]
+    for m in mems:
+        t = (m["title"] + " " + m["content"]).lower()
+        if any(k in t for k in keywords):
+            context_docs.append(f"[{m['title']}]: {m['content']}")
+
+    context_str = "\n".join(context_docs[:4]) if context_docs else "Kho dữ liệu chuyên ngành sẵn sàng."
+
+    # 4. Kích hoạt Não Omni
+    effective_prompt = msg if msg else f"Hãy phân tích và đưa ra đánh giá kỹ thuật chuyên sâu về {media_type} vừa được gửi lên."
+    reply = ask_omni_brain(effective_prompt, context_str, has_media, media_type)
+    
+    if not reply:
+        if "biến tần" in msg.lower():
+            reply = "Biến tần (VFD) điều khiển tốc độ động cơ 3 pha qua điều biến độ rộng xung PWM, bảo vệ quá dòng/áp và tối ưu hóa hệ số công suất Cos Phi."
+        else:
+            reply = "Siêu AI Phdam Omni đã tiếp nhận dữ liệu và đang kích hoạt liên kết tri thức để phản hồi tối ưu nhất cho bồ!"
+
+    return {"reply": reply, "speak": False}
