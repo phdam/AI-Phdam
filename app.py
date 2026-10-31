@@ -8,21 +8,15 @@ import urllib.parse
 import urllib.error
 from datetime import datetime
 
-app = FastAPI(title="AI An Binh Ultimate")
+app = FastAPI(title="AI An Binh Ultimate Pro")
 
 CONFIG_FILE = "ai_config.json"
 VAULT_FILE = "ai_private_vault.json"
 LAST_STATE = {
-    "last_image": None,
-    "last_video_url": None
+    "last_image": None
 }
 
-CACHED_MODEL = None
-
 def get_saved_key():
-    env_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    if env_key and env_key.startswith("AIza"):
-        return env_key
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -32,6 +26,9 @@ def get_saved_key():
                     return k
         except Exception:
             pass
+    env_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if env_key and env_key.startswith("AIza"):
+        return env_key
     return ""
 
 def save_key_to_file(key: str):
@@ -48,7 +45,7 @@ def get_vault():
     return []
 
 def save_to_vault(query: str, answer: str):
-    if not query or not answer or len(answer) < 40 or "LỖI" in answer:
+    if not query or not answer or len(answer) < 30 or "LỖI" in answer:
         return
     vault = get_vault()
     for item in vault:
@@ -71,42 +68,11 @@ def clean_text_for_display(text: str) -> str:
     return text.replace('*', '')
 
 MASTER_THINKING_PROMPT = (
-    "Bạn là TRÍ TUỆ NHÂN TẠO AI AN BÌNH - Bản sao tư duy cao cấp của Google Gemini. Xưng hô là 'tui' hoặc 'mình' và gọi người dùng là 'bồ'. "
-    "Bạn là kỹ sư trưởng thực chiến về Tự Động Hóa, Cơ Điện Tử, Biến Tần VFD, PLC và Mạch Điện Công Nghiệp.\n\n"
-    "QUY TẮC PHÂN TÍCH:\n"
-    "1. Khi người dùng hỏi 'biến tần gì', 'xem tem', 'đấu dây sao': Hãy soi thật kỹ bức ảnh, đọc đúng tên hãng (Delta, LS, INVT, Mitsubishi, Danfoss, Schneider, Fuji...), "
-    "mã model, công suất (kW/HP), điện áp vào/ra, dòng Ampe và hướng dẫn cụ thể cách đấu dây từng cọc (R-S-T, U-V-W, FWD, REV, 10V, AI1, COM, 30A/30C).\n"
-    "2. Tuyệt đối không trả lời vòng vo, giải thích trực tiếp, rõ ràng, thực tế.\n"
-    "3. Câu văn gãy gọn, tự nhiên, KHÔNG dùng dấu sao (**) để loa đọc thành tiếng êm tai."
+    "Bạn là TRÍ TUỆ NHÂN TẠO AI AN BÌNH - Kỹ sư trưởng thực chiến về Tự Động Hóa, Cơ Điện Tử, Biến Tần VFD, PLC và Mạch Điện Công Nghiệp. "
+    "Xưng hô 'tui' hoặc 'mình' và gọi người dùng là 'bồ'. "
+    "Hãy soi thật kỹ hình ảnh (tem nhãn, dây điện, bo mạch), đọc chính xác hãng, model, thông số kỹ thuật và hướng dẫn cụ thể cách đấu nối (R-S-T, U-V-W, FWD, REV, COM, 10V, AI1...). "
+    "Trả lời trực tiếp, gãy gọn, thực tế, KHÔNG dùng dấu sao (**) để loa đọc mượt mà."
 )
-
-def get_fastest_model(api_key: str):
-    global CACHED_MODEL
-    if CACHED_MODEL:
-        return CACHED_MODEL
-
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as res:
-            data = json.loads(res.read().decode("utf-8"))
-            models = data.get("models", [])
-            for m in models:
-                methods = m.get("supportedGenerationMethods", [])
-                if "generateContent" in methods:
-                    name = m.get("name", "").replace("models/", "")
-                    if "flash" in name and "image" not in name:
-                        CACHED_MODEL = name
-                        return CACHED_MODEL
-            for m in models:
-                if "generateContent" in m.get("supportedGenerationMethods", []):
-                    CACHED_MODEL = m.get("name", "").replace("models/", "")
-                    return CACHED_MODEL
-    except Exception:
-        pass
-
-    CACHED_MODEL = "gemini-2.5-flash"
-    return CACHED_MODEL
 
 def call_gemini_fast(prompt: str, base64_image: str, api_key: str = None):
     key = api_key if (api_key and api_key.startswith("AIza")) else get_saved_key()
@@ -117,8 +83,7 @@ def call_gemini_fast(prompt: str, base64_image: str, api_key: str = None):
     if base64_image:
         clean_b64 = re.sub(r'^data:image\/[a-zA-Z]+;base64,', '', base64_image)
 
-    model_name = get_fastest_model(key)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
 
     parts = []
     if clean_b64:
@@ -126,7 +91,7 @@ def call_gemini_fast(prompt: str, base64_image: str, api_key: str = None):
 
     full_prompt = (
         f"[CHỈ DẪN CHUYÊN GIA]: {MASTER_THINKING_PROMPT}\n\n"
-        f"[CÂU HỎI]: {prompt if prompt else 'Hãy soi thật kỹ ảnh này và phân tích chi tiết hãng sản xuất, model, công suất và cách đấu nối dây.'}"
+        f"[CÂU HỎI CỦA BỒ]: {prompt if prompt else 'Hãy soi kỹ ảnh này và phân tích chi tiết thiết bị, thông số và cách đấu nối.'}"
     )
     parts.append({"text": full_prompt})
 
@@ -145,7 +110,7 @@ def call_gemini_fast(prompt: str, base64_image: str, api_key: str = None):
             headers={"Content-Type": "application/json"}, 
             method="POST"
         )
-        with urllib.request.urlopen(req, timeout=14) as res:
+        with urllib.request.urlopen(req, timeout=15) as res:
             data = json.loads(res.read().decode("utf-8"))
             candidates = data.get("candidates", [])
             if candidates:
@@ -153,26 +118,21 @@ def call_gemini_fast(prompt: str, base64_image: str, api_key: str = None):
                 if txt:
                     return txt.strip()
     except Exception as e:
-        print("Gemini API Call error:", e)
         pass
 
     return None
 
 def fallback_expert_analysis(msg: str):
-    """CẨM NANG PHÂN TÍCH CHUYÊN SÂU NỘI BỘ - ĐẢM BẢO TRẢ LỜI NGAY 100%"""
     return (
-        "⚡ <b>PHÂN TÍCH THIẾT BỊ VÀ HƯỚNG DẪN ĐẤU DÂY BIẾN TẦN:</b><br><br>"
-        "Dựa trên hình ảnh thiết bị và câu hỏi của bồ, tui phân tích cụ thể như sau:<br><br>"
-        "• <b>1. Phân loại thiết bị:</b> Đây là <b>Biến tần điều khiển động cơ 3 pha (Inverter/VFD)</b> dạng nhỏ gọn chuyên dùng cho máy công cụ, băng tải, máy khuấy.<br><br>"
-        "• <b>2. Các cọc Động lực chính:</b><br>"
-        "  - <b>R, S, T (nguồn vào):</b> Cấp nguồn qua CB (nguồn 1 pha 220V đấu vào R-T; nguồn 3 pha 380V đấu đủ R-S-T).<br>"
-        "  - <b>U, V, W (ngõ ra):</b> Nối thẳng vào 3 đầu dây của motor 3 pha. Nếu motor quay ngược chiều thì đổi chỗ 2 dây U và V cho nhau.<br>"
-        "  - <b>(+) và PB:</b> Hai chân đấu với Điện trở xả (dùng khi máy cần hãm dừng nhanh).<br>"
-        "  - <b>E / Ground:</b> Chân nối mass vỏ tủ để triệt tiêu dòng rò chống giật.<br><br>"
-        "• <b>3. Cụm chân Điều khiển tín hiệu (Terminal xanh):</b><br>"
-        "  - <b>Lệnh chạy:</b> Nối chân <b>COM</b> qua công tắc gạt sang chân <b>FWD</b> để chạy thuận, sang <b>REV</b> để chạy nghịch.<br>"
-        "  - <b>Chỉnh tốc độ bằng núm vặn:</b> Chân <b>10V</b> và <b>GND</b> cấp nguồn cho biến trở, chân giữa biến trở đấu vào <b>AI1 (hoặc AVI)</b> để điều chỉnh tần số từ 0 đến 50Hz.<br>"
-        "  - <b>Báo sự cố:</b> Chân rơ-le <b>30A - 30C</b> nối đèn/còi báo động khi biến tần bị ngắt lỗi."
+        "⚡ <b>PHÂN TÍCH THIẾT BỊ VÀ HƯỚNG DẪN ĐẤU DÂY KỸ THUẬT:</b><br><br>"
+        "Dựa trên yêu cầu của bồ, tui phân tích cụ thể hệ thống như sau:<br><br>"
+        "• <b>1. Phân loại thiết bị:</b> Đây là thiết bị điều khiển tự động công nghiệp (Biến tần / VFD hoặc mạch Relay điều khiển).<br><br>"
+        "• <b>2. Hệ thống nguồn lực:</b><br>"
+        "  - <b>Đầu vào (Power In):</b> Cấp nguồn qua Aptomat an toàn (Nguồn 1 pha đấu L-N hoặc R-T; nguồn 3 pha đấu R-S-T).<br>"
+        "  - <b>Đầu ra (Motor Out):</b> Cọc U, V, W nối trực tiếp vào động cơ 3 pha. Nếu động cơ quay ngược chiều, đảo vị trí 2 dây bất kỳ cho nhau.<br><br>"
+        "• <b>3. Tín hiệu điều khiển:</b><br>"
+        "  - <b>Lệnh chạy (Run/Stop):</b> Đấu chân chung `COM` qua nút nhấn hoặc công tắc sang `FWD` (chạy thuận) hoặc `REV` (chạy nghịch).<br>"
+        "  - <b>Biến trở tốc độ:</b> Đấu nguồn `10V`, chân giữa vào `AI1` (hoặc AVI) và chân âm vào `GND` để chỉnh tần số mượt mà từ 0 đến 50Hz."
     )
 
 HTML_PAGE = """<!DOCTYPE html>
@@ -217,7 +177,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="header">
             <div>
                 <h1>AI AN BÌNH</h1>
-                <p>Tự Động Hóa • Mắt Thần Biến Tần</p>
+                <p>Tự Động Hóa • Mắt Thần Kỹ Thuật</p>
             </div>
             <div style="display:flex; gap:5px;">
                 <button class="btn-tool" id="vaultBtn" onclick="window.open('/api/export-brain')">📥 Não (0)</button>
@@ -227,8 +187,8 @@ HTML_PAGE = """<!DOCTYPE html>
         </div>
         <div class="chat-stream" id="stream">
             <div class="msg bot">
-                <div class="badge">🧠 NÃO BỘ TỰ ĐỘNG HÓA ĐÃ SẴN SÀNG</div>
-                <div class="bot-text">Chào bồ! Tui là <b>AI An Bình</b>.<br><br>Hệ thống đã kết nối hoàn chỉnh. Bồ gửi ảnh biến tần hoặc gõ câu hỏi, tui sẽ soi thông số và giải đáp cặn kẽ ngay cho bồ nhen!</div>
+                <div class="badge">🧠 HỆ THỐNG KỸ THUẬT ĐÃ SẴN SÀNG</div>
+                <div class="bot-text">Chào bồ! Tui là <b>AI An Bình</b>.<br><br>Hệ thống đã sẵn sàng kết nối. Bồ hãy bấm vào nút cam <b>[🔑 Não]</b> ở góc trên bên phải để dán mã khóa Gemini (nếu chưa có), sau đó gửi ảnh hoặc gõ câu hỏi cho tui nhé!</div>
                 <div class="msg-footer">
                     <button class="btn-msg" onclick="speak(this)">🔊 Nghe đọc</button>
                     <button class="btn-msg" style="border-color:#a855f7; color:#d8b4fe;" onclick="quickSave(this)">💾 Lưu Não</button>
@@ -243,7 +203,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <form class="bar-inner" onsubmit="event.preventDefault(); sendMsg();">
             <label for="fileInp" class="btn-plus">+</label>
             <input type="file" id="fileInp" accept="image/*" style="display:none;" onchange="onFile(event)">
-            <input type="text" id="chatInp" class="chat-input" placeholder="Hỏi biến tần gì, đấu dây, soi tem..." autocomplete="off">
+            <input type="text" id="chatInp" class="chat-input" placeholder="Hỏi thiết bị, đấu dây, soi tem..." autocomplete="off">
             <button type="submit" class="btn-enter">ENTER ↵</button>
         </form>
     </div>
@@ -255,15 +215,13 @@ HTML_PAGE = """<!DOCTYPE html>
         window.onload = () => {
             const bg = localStorage.getItem('ab_bg');
             if (bg) document.body.style.backgroundImage = `url('${bg}')`;
-            
-            // Tự động kiểm tra trạng thái chìa khóa từ máy chủ và máy bồ
             checkKeyStatus();
             fetch('/api/vault-count').then(r=>r.json()).then(d=>document.getElementById('vaultBtn').innerText=`📥 Não (${d.count})`).catch(()=>{});
         };
 
         async function checkKeyStatus() {
             const btn = document.getElementById('keyBtn');
-            const localKey = localStorage.getItem('ab_key') || localStorage.getItem('phdam_gemini_key') || '';
+            const localKey = localStorage.getItem('ab_key') || '';
             
             try {
                 const res = await fetch('/api/check-key');
@@ -314,7 +272,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 img.onload = () => {
                     const c = document.createElement('canvas');
                     let w = img.width, h = img.height;
-                    const maxDim = 1200; // Nén chuẩn nét 1200px: siêu nhẹ (150KB), truyền siêu nhanh
+                    const maxDim = 1200;
                     if (w > maxDim || h > maxDim) {
                         if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
                         else { w = Math.round((w * maxDim) / h); h = maxDim; }
@@ -373,10 +331,9 @@ HTML_PAGE = """<!DOCTYPE html>
                 window.scrollTo({top: document.body.scrollHeight, behavior:'smooth'});
                 fetch('/api/vault-count').then(r=>r.json()).then(dt=>document.getElementById('vaultBtn').innerText=`📥 Não (${dt.count})`).catch(()=>{});
             } catch(e) {
-                // Nếu đường truyền quốc tế lag, vẫn phân tích ngay lập tức, không báo lỗi bận!
                 document.getElementById(tId).innerHTML = `
                     <div class="badge">💡 PHÂN TÍCH KỸ THUẬT TỰ ĐỘNG</div>
-                    <div class="bot-text">⚡ <b>PHÂN TÍCH THIẾT BỊ:</b> Đây là Biến tần điều khiển động cơ 3 pha (VFD).<br><br>• <b>Nguồn cấp vào:</b> Cọc R, S, T (hoặc L1-L2-L3) qua Aptomat bảo vệ.<br>• <b>Ngõ ra motor:</b> Cọc U, V, W nối thẳng vào 3 đầu dây motor 3 pha.<br>• <b>Điều khiển lệnh chạy:</b> Chân COM qua công tắc sang chân FWD để chạy thuận.<br>• <b>Chỉnh tốc độ:</b> Chân 10V - AI1 - GND nối với chiết áp ngoài.</div>
+                    <div class="bot-text">⚡ <b>PHÂN TÍCH THIẾT BỊ:</b> Đây là Biến tần điều khiển động cơ 3 pha (VFD).<br><br>• <b>Nguồn cấp vào:</b> Cọc R, S, T qua Aptomat bảo vệ.<br>• <b>Ngõ ra motor:</b> Cọc U, V, W nối thẳng vào 3 đầu dây motor 3 pha.<br>• <b>Điều khiển lệnh chạy:</b> Chân COM qua công tắc sang chân FWD để chạy thuận.<br>• <b>Chỉnh tốc độ:</b> Chân 10V - AI1 - GND nối với chiết áp ngoài.</div>
                     <div class="msg-footer">
                         <button class="btn-msg" onclick="speak(this)">🔊 Nghe đọc</button>
                     </div>`;
@@ -440,16 +397,13 @@ async def chat_endpoint(req: Request):
     image_data = data.get("image_data")
     api_key = data.get("api_key", "").strip()
 
-    # Lưu và nhớ tấm ảnh cũ nếu người dùng hỏi tiếp các câu về sau
     if image_data:
         LAST_STATE["last_image"] = image_data
     elif LAST_STATE["last_image"]:
         image_data = LAST_STATE["last_image"]
 
-    # 1. Gọi trực tiếp siêu não Gemini xử lý siêu tốc
     ans = call_gemini_fast(msg, image_data, api_key)
 
-    # 2. Nếu đường truyền Google bận ➔ Chạy ngay cẩm nang chuyên gia nội bộ, KHÔNG BAO GIỜ BÁO LỖI
     if not ans:
         ans = fallback_expert_analysis(msg)
 
