@@ -9,7 +9,7 @@ import urllib.error
 import random
 from datetime import datetime
 
-app = FastAPI(title="AI Phdam Automation Studio")
+app = FastAPI(title="AI An Binh Automation Studio")
 
 CONFIG_FILE = "ai_config.json"
 VAULT_FILE = "ai_private_vault.json"
@@ -78,22 +78,23 @@ def search_local_vault(query: str):
     return None
 
 def clean_markdown_to_clean_html(text: str) -> str:
-    """Chuyển đổi các dấu sao ** thành thẻ in đậm <b>, xóa sạch dấu sao thô để mắt nhìn đẹp và loa không đọc dấu sao"""
     if not text:
         return ""
-    # Chuyển **chữ** thành <b>chữ</b>
     text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
-    # Chuyển *chữ* thành <i>chữ</i>
     text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)
-    # Xóa sạch mọi dấu sao lẻ loi còn sót lại
     text = text.replace('*', '')
     return text
 
-MASTER_PERSONA_PROMPT = (
-    "Bạn là TRÍ TUỆ NHÂN TẠO PHDAM (AI Phdam). "
-    "Bạn xưng hô thân mật là 'tui' hoặc 'mình' và gọi người dùng là 'bồ'. Tuyệt đối không dùng danh xưng siêu nhân hay đại đế. "
-    "Bạn là chuyên gia thực chiến hàng đầu về PLC (Mitsubishi FX3S/FX3U, Siemens, Delta), Biến tần VFD (R-S-T, U-V-W, terminal điều khiển), HMI và tạo video MP4. "
-    "Quy tắc trình bày: Viết câu văn gãy gọn, mạch lạc, KHÔNG dùng các ký tự markdown dấu sao (**) rườm rà để người dùng vừa dễ đọc trên màn hình, vừa nghe đọc thành tiếng trôi chảy tự nhiên như người thật."
+MASTER_AN_BINH_PROMPT = (
+    "Bạn là TRÍ TUỆ NHÂN TẠO AI AN BÌNH (AI An Bình). "
+    "Bạn xưng hô thân mật là 'tui' hoặc 'mình' và gọi người dùng là 'bồ'. "
+    "Bạn sở hữu năng lực phân tích thị giác chuyên sâu và tự động hóa hàng đầu:\n\n"
+    "QUY TRÌNH PHÂN TÍCH HÌNH ẢNH & TRÍCH XUẤT CHỮ (OCR CHUYÊN NGHIỆP):\n"
+    "1. BƯỚC TIẾP NHẬN & PHÂN LOẠI: Nhận diện thể loại bức ảnh (tủ điện điều khiển, bo mạch PLC, biến tần, nhãn mác đầu cosse dây điện, màn hình HMI, hay sơ đồ bản vẽ).\n"
+    "2. BƯỚC BÓC TÁCH KÝ TỰ (OCR): Phóng to điểm ảnh, đọc chính xác 100% từng con số, mã dây cosse, ký hiệu chân cắm (như FWD, REV, COM, Y0, Y1, Y2, X1-X8, 10V, AI1, AI2, GND, R-S-T, U-V-W...).\n"
+    "3. BƯỚC PHÂN TÍCH CHUYÊN MÔN: Xâu chuỗi chức năng từng dây, hướng dẫn sơ đồ đấu nối hoàn chỉnh, giải thích nguyên lý vận hành.\n"
+    "4. HỖ TRỢ MÀN HÌNH HMI: Phân tích chân nạp COM RS232/RS485, quy trình bảo trì khôi phục cài đặt gốc Factory Reset hợp chuẩn.\n\n"
+    "Quy tắc viết: Câu cú gãy gọn, mạch lạc, dễ hiểu, TUYỆT ĐỐI KHÔNG lạm dụng các ký tự dấu sao (**) để khi chuyển thành giọng đọc nghe tự nhiên và êm tai nhất."
 )
 
 def call_open_model(prompt: str, model_type: str = "deepseek"):
@@ -101,7 +102,7 @@ def call_open_model(prompt: str, model_type: str = "deepseek"):
     encoded = urllib.parse.quote(clean_p[:600])
     model_param = "deepseek" if "deepseek" in model_type else "llama"
     try:
-        url = f"https://text.pollinations.ai/{encoded}?model={model_param}&system={urllib.parse.quote(MASTER_PERSONA_PROMPT[:300])}"
+        url = f"https://text.pollinations.ai/{encoded}?model={model_param}&system={urllib.parse.quote(MASTER_AN_BINH_PROMPT[:300])}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=12) as res:
             out = res.read().decode("utf-8").strip()
@@ -115,7 +116,7 @@ def get_working_models_for_key(api_key: str):
     found = []
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key.strip()}"
-        req = urllib.request.Request(url, headers={"User-Agent": "AI-Phdam/GeminiMaster"})
+        req = urllib.request.Request(url, headers={"User-Agent": "AI-AnBinh/VisionMaster"})
         with urllib.request.urlopen(req, timeout=6) as res:
             data = json.loads(res.read().decode("utf-8"))
             for m in data.get("models", []):
@@ -134,7 +135,7 @@ def get_working_models_for_key(api_key: str):
             found.append(c)
     return found
 
-def call_google_gemini_multi(prompt: str, base64_images: list = None, api_key: str = None):
+def call_google_gemini_vision(prompt: str, base64_images: list = None, api_key: str = None):
     key = api_key if api_key else get_saved_key()
     if not key:
         return "CHƯA_CÓ_KEY"
@@ -157,15 +158,15 @@ def call_google_gemini_multi(prompt: str, base64_images: list = None, api_key: s
                 })
 
         full_prompt = (
-            f"[CHỈ DẪN HỆ THỐNG]: {MASTER_PERSONA_PROMPT}\n\n"
-            f"[YÊU CẦU CỦA BỒ]: {prompt if prompt else 'Hãy quan sát kỹ toàn bộ ảnh này, phân tích số dây và hướng dẫn sơ đồ đấu nối chi tiết, mạch lạc.'}"
+            f"[CHỈ DẪN HỆ THỐNG]: {MASTER_AN_BINH_PROMPT}\n\n"
+            f"[YÊU CẦU CỦA BỒ]: {prompt if prompt else 'Hãy soi thật kỹ ảnh này: phân loại ảnh, trích xuất chính xác từng con số/chữ/ký hiệu trên dây điện và phân tích chuyên môn chi tiết.'}"
         )
         parts.append({"text": full_prompt})
 
         payload = {
             "contents": [{"parts": parts}],
             "generationConfig": {
-                "temperature": 0.25,
+                "temperature": 0.2,
                 "maxOutputTokens": 2500
             }
         }
@@ -197,10 +198,8 @@ def call_google_gemini_multi(prompt: str, base64_images: list = None, api_key: s
 def build_hollywood_video_prompt(msg: str):
     m = msg.lower()
     if any(k in m for k in ["sửa điện", "thợ điện", "tủ điện", "đấu điện"]):
-        LAST_STATE["theme"] = "kỹ sư sửa điện tự động hóa"
-        action = "Vietnamese electrical engineer repairing industrial automation cabinet with wiring tools, sparks, cinematic 35mm lens, 4k 60fps"
+        action = "Vietnamese electrical technician working on automation cabinet with wiring tools, sparks, cinematic 35mm lens, 4k 60fps"
     elif any(k in m for k in ["bánh mì", "ăn bánh mì"]):
-        LAST_STATE["theme"] = "ăn bánh mì đi dạo"
         action = "Vietnamese person holding and eating a crispy baguette bread walking happily down a scenic city avenue, golden hour lighting, 4k"
     else:
         cleaned = re.sub(r'(tạo videos?|tạo phim|làm videos?|vẽ|cho tôi|giúp tôi)\s*', '', m).strip()
@@ -213,333 +212,95 @@ HTML_PAGE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>AI Phdam</title>
+    <title>AI AN BÌNH</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        
         body { 
-            background: #050811; 
-            color: #f1f5f9; 
-            min-height: 100vh; 
-            display: flex; 
-            flex-direction: column; 
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            padding-bottom: 90px;
+            background: #050811; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; 
+            background-size: cover; background-position: center; background-repeat: no-repeat; padding-bottom: 90px; 
         }
-
-        .backdrop-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(5, 8, 17, 0.88);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            z-index: 1;
+        .backdrop-overlay { 
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+            background: rgba(5, 8, 17, 0.88); backdrop-filter: blur(10px); z-index: 1; 
         }
-
-        .app-container {
-            position: relative;
-            z-index: 2;
-            display: flex;
-            flex-direction: column;
-            max-width: 650px;
-            width: 100%;
-            margin: 0 auto;
-            flex: 1;
+        .app-container { 
+            position: relative; z-index: 2; display: flex; flex-direction: column; 
+            max-width: 650px; width: 100%; margin: 0 auto; flex: 1; 
         }
-
-        /* HEADER CHỮ TRẮNG TINH KHÔI, KHÔNG MÀU CẦU VỒNG */
-        .header {
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 14px;
-            background: rgba(15, 23, 42, 0.95);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+        .header { 
+            position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; 
+            padding: 10px 14px; background: rgba(15, 23, 42, 0.95); border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
+            backdrop-filter: blur(12px); 
         }
-        .header-title h1 {
-            font-size: 18px;
-            color: #ffffff; /* Chữ trắng sáng thanh lịch, không cầu vồng */
-            font-weight: 800;
-            letter-spacing: 0.5px;
+        .header-title h1 { font-size: 18px; color: #ffffff; font-weight: 800; letter-spacing: 0.5px; }
+        .header-title p { font-size: 10.5px; color: #94a3b8; }
+        .header-actions { display: flex; align-items: center; gap: 6px; }
+        .btn-tool { 
+            background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #e2e8f0; 
+            padding: 5px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; white-space: nowrap; 
         }
-        .header-title p {
-            font-size: 10.5px;
-            color: #94a3b8;
+        .btn-vault { background: #2563eb !important; color: #fff !important; font-weight: bold; border: none !important; }
+        .btn-key-active { background: #10b981 !important; color: #fff !important; font-weight: bold; border: none !important; }
+        .btn-key-pending { background: #f59e0b !important; color: #fff !important; font-weight: bold; border: none !important; }
+        .chat-stream { flex: 1; padding: 14px 12px; display: flex; flex-direction: column; gap: 12px; }
+        .msg { 
+            max-width: 90%; padding: 12px 14px; border-radius: 14px; font-size: 14px; line-height: 1.55; 
+            word-break: break-word; box-shadow: 0 4px 15px rgba(0,0,0,0.25); position: relative; 
         }
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: 6px;
+        .msg.bot { background: rgba(30, 41, 59, 0.95); color: #f8fafc; align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.08); }
+        .msg.user { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .user-media-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        .user-media-grid img, .user-media-grid video { width: 85px; height: 85px; border-radius: 8px; object-fit: cover; }
+        .msg-footer { 
+            margin-top: 10px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; 
+            border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 8px; 
         }
-        .btn-tool {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: #e2e8f0;
-            padding: 5px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            cursor: pointer;
-            white-space: nowrap;
+        .btn-action-msg { 
+            background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; 
+            padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: bold; cursor: pointer; 
+            display: inline-flex; align-items: center; gap: 4px; 
         }
-        .btn-vault {
-            background: #2563eb !important;
-            color: #fff !important;
-            font-weight: bold;
-            border: none !important;
+        .btn-save-vault { background: rgba(168, 85, 247, 0.15) !important; border-color: #a855f7 !important; color: #d8b4fe !important; }
+        .cinema-video-card { margin-top: 10px; background: rgba(0, 0, 0, 0.6); border: 1px solid #38bdf8; border-radius: 14px; padding: 10px; text-align: center; }
+        .cinema-video-player { width: 100%; border-radius: 8px; max-height: 300px; background: #000; display: block; }
+        .btn-download-video { 
+            background: #38bdf8; color: #050811; padding: 7px 16px; border-radius: 8px; font-weight: 800; 
+            font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; 
         }
-        .btn-key-active {
-            background: #10b981 !important;
-            color: #fff !important;
-            font-weight: bold;
-            border: none !important;
+        .attachment-preview-bar { 
+            display: none; position: fixed; bottom: 74px; left: 0; right: 0; z-index: 99; 
+            background: rgba(15, 23, 42, 0.96); padding: 6px 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); 
         }
-        .btn-key-pending {
-            background: #f59e0b !important;
-            color: #fff !important;
-            font-weight: bold;
-            border: none !important;
+        .preview-scroll-row { max-width: 650px; margin: 0 auto; display: flex; gap: 8px; overflow-x: auto; }
+        .preview-item-chip { display: flex; align-items: center; gap: 6px; background: #1e293b; padding: 4px 8px; border-radius: 8px; font-size: 11px; flex-shrink: 0; }
+        .preview-item-chip img, .preview-item-chip video { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; }
+        .btn-chip-remove { background: none; border: none; color: #ef4444; font-weight: bold; font-size: 14px; cursor: pointer; }
+        .bottom-bar { 
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: rgba(15, 23, 42, 0.96); 
+            backdrop-filter: blur(14px); border-top: 1px solid rgba(255, 255, 255, 0.12); 
+            padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 8px)); 
         }
-
-        .chat-stream {
-            flex: 1;
-            padding: 14px 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+        .bottom-bar-inner { max-width: 650px; margin: 0 auto; display: flex; align-items: center; gap: 5px; width: 100%; }
+        .btn-icon-label { 
+            background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #38bdf8; 
+            width: 36px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; 
+            font-size: 22px; font-weight: bold; cursor: pointer; flex-shrink: 0; 
         }
-        .msg {
-            max-width: 90%;
-            padding: 12px 14px;
-            border-radius: 14px;
-            font-size: 14px;
-            line-height: 1.55;
-            word-break: break-word;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.25);
-            position: relative;
+        .btn-icon { 
+            background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #38bdf8; 
+            width: 36px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; 
+            font-size: 17px; cursor: pointer; flex-shrink: 0; 
         }
-        .msg.bot {
-            background: rgba(30, 41, 59, 0.95);
-            color: #f8fafc;
-            align-self: flex-start;
-            border-bottom-left-radius: 4px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+        .chat-input { 
+            flex: 1; min-width: 0; padding: 10px 11px; background: rgba(8, 12, 20, 0.9); 
+            border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 8px; color: #fff; font-size: 13.5px; outline: none; 
         }
-        .msg.user {
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            color: #fff;
-            align-self: flex-end;
-            border-bottom-right-radius: 4px;
+        .btn-enter { 
+            background: #10b981; color: #ffffff; border: none; padding: 0 12px; height: 42px; 
+            border-radius: 8px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; 
+            align-items: center; justify-content: center; gap: 3px; flex-shrink: 0; white-space: nowrap; 
         }
-        .user-media-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 6px;
-        }
-        .user-media-grid img, .user-media-grid video {
-            width: 85px;
-            height: 85px;
-            border-radius: 8px;
-            object-fit: cover;
-        }
-
-        .msg-footer {
-            margin-top: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 8px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            padding-top: 8px;
-        }
-        .btn-action-msg {
-            background: rgba(56, 189, 248, 0.15);
-            border: 1px solid #38bdf8;
-            color: #38bdf8;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 11.5px;
-            font-weight: bold;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .btn-action-msg:active {
-            transform: scale(0.95);
-        }
-        .btn-save-vault {
-            background: rgba(168, 85, 247, 0.15) !important;
-            border-color: #a855f7 !important;
-            color: #d8b4fe !important;
-        }
-
-        .cinema-video-card {
-            margin-top: 10px;
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid #38bdf8;
-            border-radius: 14px;
-            padding: 10px;
-            text-align: center;
-        }
-        .cinema-video-player {
-            width: 100%;
-            border-radius: 8px;
-            max-height: 300px;
-            background: #000;
-            display: block;
-        }
-        .btn-download-video {
-            background: #38bdf8;
-            color: #050811;
-            padding: 7px 16px;
-            border-radius: 8px;
-            font-weight: 800;
-            font-size: 12px;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            margin-top: 8px;
-        }
-
-        .attachment-preview-bar {
-            display: none;
-            position: fixed;
-            bottom: 74px;
-            left: 0; right: 0;
-            z-index: 99;
-            background: rgba(15, 23, 42, 0.96);
-            padding: 6px 12px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .preview-scroll-row {
-            max-width: 650px;
-            margin: 0 auto;
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-        }
-        .preview-item-chip {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            background: #1e293b;
-            padding: 4px 8px;
-            border-radius: 8px;
-            font-size: 11px;
-            flex-shrink: 0;
-        }
-        .preview-item-chip img, .preview-item-chip video {
-            width: 32px;
-            height: 32px;
-            object-fit: cover;
-            border-radius: 4px;
-        }
-        .btn-chip-remove {
-            background: none;
-            border: none;
-            color: #ef4444;
-            font-weight: bold;
-            font-size: 14px;
-            cursor: pointer;
-        }
-
-        .bottom-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 100;
-            background: rgba(15, 23, 42, 0.96);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border-top: 1px solid rgba(255, 255, 255, 0.12);
-            padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 8px));
-        }
-        .bottom-bar-inner {
-            max-width: 650px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            width: 100%;
-        }
-        
-        .btn-icon-label {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: #38bdf8;
-            width: 36px;
-            height: 42px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            font-weight: bold;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-
-        .btn-icon {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: #38bdf8;
-            width: 36px;
-            height: 42px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 17px;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-        
-        .chat-input {
-            flex: 1;
-            min-width: 0;
-            padding: 10px 11px;
-            background: rgba(8, 12, 20, 0.9);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            border-radius: 8px;
-            color: #fff;
-            font-size: 13.5px;
-            outline: none;
-        }
-        .chat-input::placeholder {
-            color: #64748b;
-        }
-
-        .btn-enter {
-            background: #10b981;
-            color: #ffffff;
-            border: none;
-            padding: 0 12px;
-            height: 42px;
-            border-radius: 8px;
-            font-weight: 800;
-            font-size: 13.5px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 3px;
-            flex-shrink: 0;
-            white-space: nowrap;
-        }
-
-        #fileInput, #bgInput {
-            display: none;
-        }
+        #fileInput, #bgInput { display: none; }
     </style>
 </head>
 <body>
@@ -548,8 +309,8 @@ HTML_PAGE = """
     <div class="app-container">
         <div class="header">
             <div class="header-title">
-                <h1>AI PHDAM</h1>
-                <p>Tự Động Hóa • PLC & Biến Tần • HMI • Video</p>
+                <h1>AI AN BÌNH</h1>
+                <p>Tự Động Hóa • Thị Giác Chuyên Sâu • Video</p>
             </div>
             <div class="header-actions">
                 <button class="btn-tool btn-vault" id="vaultBtn" onclick="downloadBrainBackup()">📥 Não (0)</button>
@@ -561,8 +322,10 @@ HTML_PAGE = """
         <div class="chat-stream" id="chatStream">
             <div class="msg bot">
                 <div class="bot-text">
-                    Chào bồ! Tui là trợ lý AI Phdam.<br><br>
-                    Các bộ não hiện đã tự động hỗ trợ nhau 100%. Bồ chỉ cần gửi câu hỏi hoặc ảnh, rồi bấm nút <b>[🔊 Nghe đọc]</b> là tui sẽ đọc to rõ, mạch lạc cho bồ nghe nhen!
+                    Chào bồ! Tui là <b>AI An Bình</b>.<br><br>
+                    👁️ <b>Quy trình soi ảnh & bóc tách chữ chuyên sâu đã kích hoạt:</b><br>
+                    • Tiếp nhận ảnh ➔ Phân loại thể loại ➔ Trích xuất chuẩn xác từng số cosse dây, ký hiệu chân cắm (FWD, REV, Y0, Y1, R-S-T, U-V-W...).<br>
+                    • Bấm nút <b>[🔊 Nghe đọc]</b> ở dưới để tui cất giọng đọc to rõ, rành mạch cho bồ nhen!
                 </div>
                 <div class="msg-footer">
                     <button class="btn-action-msg" onclick="speakMessage(this)">🔊 Nghe đọc</button>
@@ -581,7 +344,7 @@ HTML_PAGE = """
             <label for="fileInput" class="btn-icon-label" title="Chọn nhiều ảnh / video">+</label>
             <input type="file" id="fileInput" accept="image/*,video/*" multiple onchange="handleFileSelected(event)">
 
-            <input type="text" id="chatInput" class="chat-input" placeholder="Gửi ảnh vẽ sơ đồ, hỏi PLC, biến tần..." autocomplete="off">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Gửi ảnh soi dây, hỏi PLC, biến tần, tạo video..." autocomplete="off">
 
             <button type="button" class="btn-icon" onclick="saveCurrentInputNote()" title="Ghi nhớ nhanh vào não">💾</button>
             <button type="button" class="btn-icon" id="micBtn" onclick="toggleMic()" title="Nói">🎙️</button>
@@ -639,7 +402,7 @@ HTML_PAGE = """
                 body: JSON.stringify({ key: cleanKey })
             });
 
-            alert("🎉 ĐÃ KÍCH HOẠT! Não bộ Google Gemini sẵn sàng phục vụ bồ!");
+            alert("🎉 ĐÃ KÍCH HOẠT! AI An Bình sẵn sàng phục vụ bồ!");
         }
 
         function changeBackground(e) {
@@ -784,7 +547,7 @@ HTML_PAGE = """
 
             const isAskingVideo = /tạo videos?|làm videos?|tạo phim/i.test(text);
             const tempId = 'bot_temp_' + Date.now();
-            stream.innerHTML += `<div class="msg bot" id="${tempId}"><div class="bot-text">${isAskingVideo ? '🎬 Đang kết xuất video MP4...' : (allImages.length > 1 ? '⚡ Đang xâu chuỗi nhiều ảnh để vẽ sơ đồ mạch...' : '⚡ Đang phân tích dữ liệu...')}</div></div>`;
+            stream.innerHTML += `<div class="msg bot" id="${tempId}"><div class="bot-text">${isAskingVideo ? '🎬 AI An Bình đang kết xuất video MP4...' : (allImages.length > 1 ? '⚡ AI An Bình đang xâu chuỗi nhiều ảnh để vẽ sơ đồ mạch...' : '⚡ AI An Bình đang bóc tách chữ và phân tích...')}</div></div>`;
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
             try {
@@ -815,7 +578,7 @@ HTML_PAGE = """
                         <div style="font-size:12px; color:#38bdf8; font-weight:bold; margin-bottom:6px;">🎬 VIDEO KẾT XUẤT:</div>
                         <video class="cinema-video-player" src="${d.video_mp4_url}" controls autoplay loop playsinline></video>
                         <div>
-                            <a href="${d.video_mp4_url}" target="_blank" download="ai_phdam_video.mp4" class="btn-download-video">⬇️ Tải Video MP4 về máy</a>
+                            <a href="${d.video_mp4_url}" target="_blank" download="ai_anbinh_video.mp4" class="btn-download-video">⬇️ Tải Video MP4 về máy</a>
                         </div>
                     </div>`;
                 }
@@ -834,7 +597,7 @@ HTML_PAGE = """
             }
         }
 
-        // HÀM ĐỌC GIỌNG NÓI SIÊU MƯỢT - TRIỆT TIÊU 100% DẤU SAO VÀ KÝ TỰ RÁC
+        // GIỌNG ĐỌC AI AN BÌNH: MỞ ĐẦU THÂN MẬT, XÓA SẠCH DẤU SAO
         function speakMessage(btn) {
             if (!window.speechSynthesis) return alert('Thiết bị chưa hỗ trợ phát âm thanh trực tiếp!');
             window.speechSynthesis.cancel();
@@ -843,7 +606,6 @@ HTML_PAGE = """
             const textBox = msgBox.querySelector('.bot-text');
             let rawText = textBox ? textBox.innerText : msgBox.innerText;
             
-            // 1. Gỡ bỏ nút bấm và nhãn hệ thống
             rawText = rawText.replace(/🔊/g, '')
                              .replace(/Nghe đọc/g, '')
                              .replace(/💾/g, '')
@@ -854,7 +616,6 @@ HTML_PAGE = """
                              .replace(/Đại đế/gi, '')
                              .replace(/Emperor/gi, '');
 
-            // 2. Xóa sạch vĩnh viễn 100% tất cả dấu sao, dấu nháy kép, dấu gạch ngang rườm rà
             let clean = rawText.replaceAll('*', '')
                                .replaceAll('`', '')
                                .replaceAll('#', '')
@@ -868,12 +629,11 @@ HTML_PAGE = """
                                .replace(/\s+/g, ' ')
                                .trim();
 
-            // 3. Mở đầu bằng lời chào thân mật chuẩn xác theo ý bồ
-            let finalSpeech = "Bồ ơi tui đọc cho bồ nghe nhen. " + clean;
+            let finalSpeech = "Xin chào, tôi là AI An Bình, tôi xin đọc nội dung như sau: " + clean;
             
             const utterance = new SpeechSynthesisUtterance(finalSpeech);
             utterance.lang = 'vi-VN';
-            utterance.rate = 0.95; // Tốc độ chuẩn, ấm áp, ngắt nghỉ rõ ràng
+            utterance.rate = 0.95;
             utterance.pitch = 1.0;
             window.speechSynthesis.speak(utterance);
         }
@@ -918,7 +678,7 @@ async def export_brain():
     return Response(
         content=content,
         media_type="application/json",
-        headers={"Content-Disposition": "attachment; filename=AI_Phdam_Brain_Backup.json"}
+        headers={"Content-Disposition": "attachment; filename=AI_AnBinh_Brain_Backup.json"}
     )
 
 @app.post("/api/save-memory")
@@ -971,23 +731,23 @@ async def chat_endpoint(req: Request):
             clean_reply = clean_markdown_to_clean_html(f"⚡ [Tri thức tự thân từ Két Sắt của bồ]:<br><br>{vault_hit}")
             return {"reply": clean_reply, "video_mp4_url": None, "learned": False}
 
-    # 3. CÁC BỘ NÃO TỰ ĐỘNG HỖ TRỢ NHAU (AUTO-ORCHESTRATOR)
+    # 3. TỰ ĐỘNG ĐIỀU PHỐI ĐA NÃO (GEMINI + DEEPSEEK + LLAMA)
     ai_answer = None
 
-    # Ưu tiên số 1: Gọi Google Gemini xử lý hình ảnh và kỹ thuật
-    gemini_out = call_google_gemini_multi(msg, images, client_api_key)
+    # Gọi Google Gemini Mắt Thần OCR xử lý ảnh và bóc tách chữ
+    gemini_out = call_google_gemini_vision(msg, images, client_api_key)
     if gemini_out and not gemini_out.startswith("LỖI_GOOGLE:") and gemini_out != "CHƯA_CÓ_KEY":
         ai_answer = gemini_out
 
-    # Nếu Gemini bận hoặc chưa có key: Tự động chuyển tiếp sang DeepSeek-R1
+    # Dự phòng sang DeepSeek-R1 nếu Gemini nghẽn
     if not ai_answer:
         ai_answer = call_open_model(msg, "deepseek")
 
-    # Nếu DeepSeek bận: Tự động chuyển tiếp sang Meta Llama 3.3
+    # Dự phòng sang Meta Llama 3.3
     if not ai_answer:
         ai_answer = call_open_model(msg, "llama")
 
-    # 4. BỘ NÃO NỘI BỘ DỰ PHÒNG CHUYÊN SÂU
+    # 4. KHO DỮ LIỆU CẨM NANG DỰ PHÒNG CHUYÊN SÂU
     if not ai_answer:
         if any(w in lower_msg for w in ["hmi", "màn hình", "pass", "password", "mật khẩu", "reset"]):
             ai_answer = (
@@ -1001,9 +761,8 @@ async def chat_endpoint(req: Request):
                 "Để chỉnh tốc độ bằng chiết áp ngoài: Cấp nguồn chân 10V và chân GND của biến tần vào hai đầu điện trở, chân giữa biến trở đấu vào chân AI1 (0-10V) để tăng giảm tần số mượt mà."
             )
         else:
-            ai_answer = f"Bồ ơi, tui đã ghi nhận câu hỏi '{msg}'. Bồ cần xâu chuỗi sơ đồ mạch, kiểm tra thông số PLC hay biến tần cứ gửi yêu cầu nhé!"
+            ai_answer = f"Bồ ơi, tui đã ghi nhận câu hỏi '{msg}'. Bồ cần bóc tách chữ trong ảnh, xâu chuỗi sơ đồ mạch hay kiểm tra thông số cứ gửi ảnh và yêu cầu nhé!"
 
-    # Làm sạch toàn bộ dấu sao thô trước khi gửi về giao diện
     formatted_reply = clean_markdown_to_clean_html(ai_answer)
     save_to_vault(msg, formatted_reply)
     return {"reply": formatted_reply, "video_mp4_url": None, "learned": not bool(images)}
