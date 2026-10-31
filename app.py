@@ -499,3 +499,511 @@ HTML_PAGE = """
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 17px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        
+        .chat-input {
+            flex: 1;
+            min-width: 0;
+            padding: 10px 11px;
+            background: rgba(8, 12, 20, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 13.5px;
+            outline: none;
+        }
+        .chat-input::placeholder {
+            color: #64748b;
+        }
+
+        .btn-enter {
+            background: #10b981;
+            color: #ffffff;
+            border: none;
+            padding: 0 12px;
+            height: 42px;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 13.5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        #fileInput, #bgInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="backdrop-overlay"></div>
+
+    <div class="app-container">
+        <div class="header">
+            <div class="header-title">
+                <h1>AI PHDAM</h1>
+                <p>Tự Động Hóa • PLC & Biến Tần • HMI • Video</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-tool btn-vault" id="vaultBtn" onclick="downloadBrainBackup()">📥 Não (0)</button>
+                <button class="btn-tool" onclick="document.getElementById('bgInput').click()" title="Tải ảnh nền cá nhân">🖼️ Nền</button>
+                <button class="btn-tool btn-key-pending" id="keyBtn" onclick="setupApiKey()">🔑 Não</button>
+            </div>
+        </div>
+
+        <div class="chat-stream" id="chatStream">
+            <div class="msg bot">
+                <div class="bot-text">
+                    Chào bồ! Tui là trợ lý AI Phdam.<br><br>
+                    Các bộ não hiện đã tự động hỗ trợ nhau 100%. Bồ chỉ cần gửi câu hỏi hoặc ảnh, rồi bấm nút <b>[🔊 Nghe đọc]</b> là tui sẽ đọc to rõ, mạch lạc cho bồ nghe nhen!
+                </div>
+                <div class="msg-footer">
+                    <button class="btn-action-msg" onclick="speakMessage(this)">🔊 Nghe đọc</button>
+                    <button class="btn-action-msg btn-save-vault" onclick="quickSaveVault(this)">💾 Lưu Vào Não</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="attachment-preview-bar" id="attachPreviewBar">
+        <div class="preview-scroll-row" id="previewRow"></div>
+    </div>
+
+    <div class="bottom-bar">
+        <form class="bottom-bar-inner" onsubmit="event.preventDefault(); sendPayload();">
+            <label for="fileInput" class="btn-icon-label" title="Chọn nhiều ảnh / video">+</label>
+            <input type="file" id="fileInput" accept="image/*,video/*" multiple onchange="handleFileSelected(event)">
+
+            <input type="text" id="chatInput" class="chat-input" placeholder="Gửi ảnh vẽ sơ đồ, hỏi PLC, biến tần..." autocomplete="off">
+
+            <button type="button" class="btn-icon" onclick="saveCurrentInputNote()" title="Ghi nhớ nhanh vào não">💾</button>
+            <button type="button" class="btn-icon" id="micBtn" onclick="toggleMic()" title="Nói">🎙️</button>
+            <button type="submit" class="btn-enter" title="Chạy">ENTER ↵</button>
+        </form>
+    </div>
+
+    <input type="file" id="bgInput" accept="image/*" onchange="changeBackground(event)">
+
+    <script>
+        let currentAttachments = [];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedBg = localStorage.getItem('phdam_user_bg');
+            if (savedBg) document.body.style.backgroundImage = `url('${savedBg}')`;
+            checkAndSyncKey();
+            updateVaultCounter();
+        });
+
+        async function updateVaultCounter() {
+            try {
+                const res = await fetch('/api/vault-count');
+                const d = await res.json();
+                document.getElementById('vaultBtn').innerText = `📥 Não (${d.count})`;
+            } catch(e) {}
+        }
+
+        function downloadBrainBackup() {
+            window.open('/api/export-brain', '_blank');
+        }
+
+        function checkAndSyncKey() {
+            const savedKey = localStorage.getItem('phdam_gemini_key');
+            const keyBtn = document.getElementById('keyBtn');
+            if (savedKey && savedKey.startsWith('AIza')) {
+                keyBtn.innerText = '✅ Có Não';
+                keyBtn.className = 'btn-tool btn-key-active';
+            } else {
+                keyBtn.innerText = '🔑 Não';
+                keyBtn.className = 'btn-tool btn-key-pending';
+            }
+        }
+
+        async function setupApiKey() {
+            const oldKey = localStorage.getItem('phdam_gemini_key') || '';
+            const input = prompt("Dán mã khóa Google Gemini API (AIza...) vào đây:", oldKey);
+            if (!input) return;
+            const cleanKey = input.trim();
+            localStorage.setItem('phdam_gemini_key', cleanKey);
+            checkAndSyncKey();
+
+            await fetch('/api/set-key', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ key: cleanKey })
+            });
+
+            alert("🎉 ĐÃ KÍCH HOẠT! Não bộ Google Gemini sẵn sàng phục vụ bồ!");
+        }
+
+        function changeBackground(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            compressImage(file, 1200, 0.7, (bgUrl) => {
+                document.body.style.backgroundImage = `url('${bgUrl}')`;
+                localStorage.setItem('phdam_user_bg', bgUrl);
+                alert("🖼️ Đã đổi ảnh nền thành công!");
+            });
+        }
+
+        function compressImage(file, maxWidth, quality, callback) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width;
+                    let h = img.height;
+                    if (w > maxWidth) {
+                        h = Math.round((h * maxWidth) / w);
+                        w = maxWidth;
+                    }
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    callback(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function handleFileSelected(e) {
+            const files = Array.from(e.target.files);
+            if (!files.length) return;
+            
+            files.forEach(f => {
+                const isVideo = f.type.startsWith('video');
+                if (isVideo) {
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                        currentAttachments.push({ name: f.name, dataUrl: evt.target.result, isVideo: true });
+                        renderPreviewChips();
+                    };
+                    reader.readAsDataURL(f);
+                } else {
+                    compressImage(f, 900, 0.8, (compressedDataUrl) => {
+                        currentAttachments.push({ name: f.name, dataUrl: compressedDataUrl, isVideo: false });
+                        renderPreviewChips();
+                    });
+                }
+            });
+            e.target.value = '';
+        }
+
+        function renderPreviewChips() {
+            const bar = document.getElementById('attachPreviewBar');
+            const row = document.getElementById('previewRow');
+            if (!currentAttachments.length) {
+                bar.style.display = 'none';
+                return;
+            }
+            bar.style.display = 'block';
+            row.innerHTML = currentAttachments.map((att, i) => `
+                <div class="preview-item-chip">
+                    ${att.isVideo ? `<video src="${att.dataUrl}" muted></video>` : `<img src="${att.dataUrl}">`}
+                    <span style="max-width:85px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${att.name}</span>
+                    <button type="button" class="btn-chip-remove" onclick="removeAttachItem(${i})">×</button>
+                </div>
+            `).join('');
+        }
+
+        function removeAttachItem(index) {
+            currentAttachments.splice(index, 1);
+            renderPreviewChips();
+        }
+
+        async function saveCurrentInputNote() {
+            const text = document.getElementById('chatInput').value.trim();
+            if (!text) return alert("Bồ hãy nhập nội dung cần ghi nhớ vào ô chat trước nhé!");
+            await fetch('/api/save-memory', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ query: text.substring(0, 30), answer: text })
+            });
+            document.getElementById('chatInput').value = '';
+            alert("💾 Đã lưu ghi chú này vào Két Sắt thành công!");
+            updateVaultCounter();
+        }
+
+        async function quickSaveVault(btn) {
+            const msgBox = btn.closest('.msg');
+            const textBox = msgBox.querySelector('.bot-text');
+            const answer = textBox ? textBox.innerText : msgBox.innerText;
+            await fetch('/api/save-memory', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ query: answer.substring(0, 35), answer: answer })
+            });
+            alert("🎉 Đã cất bài học này vào Két Sắt thành công!");
+            updateVaultCounter();
+        }
+
+        async function sendPayload() {
+            const inp = document.getElementById('chatInput');
+            const text = inp.value.trim();
+
+            if (!text && !currentAttachments.length) {
+                alert('Bồ hãy gõ câu hỏi hoặc chọn ảnh trước khi bấm ENTER nhé!');
+                return;
+            }
+
+            const stream = document.getElementById('chatStream');
+
+            let userHtml = `<div class="msg user">`;
+            if (currentAttachments.length) {
+                userHtml += `<div class="user-media-grid">`;
+                currentAttachments.forEach(att => {
+                    if (att.isVideo) {
+                        userHtml += `<video src="${att.dataUrl}" controls playsinline></video>`;
+                    } else {
+                        userHtml += `<img src="${att.dataUrl}">`;
+                    }
+                });
+                userHtml += `</div>`;
+            }
+            if (text) userHtml += `<div>${text}</div>`;
+            userHtml += `</div>`;
+            stream.innerHTML += userHtml;
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+            const allImages = currentAttachments.filter(a => !a.isVideo).map(a => a.dataUrl);
+            const sentCount = currentAttachments.length;
+            const userKey = localStorage.getItem('phdam_gemini_key') || '';
+
+            currentAttachments = [];
+            renderPreviewChips();
+            inp.value = '';
+
+            const isAskingVideo = /tạo videos?|làm videos?|tạo phim/i.test(text);
+            const tempId = 'bot_temp_' + Date.now();
+            stream.innerHTML += `<div class="msg bot" id="${tempId}"><div class="bot-text">${isAskingVideo ? '🎬 Đang kết xuất video MP4...' : (allImages.length > 1 ? '⚡ Đang xâu chuỗi nhiều ảnh để vẽ sơ đồ mạch...' : '⚡ Đang phân tích dữ liệu...')}</div></div>`;
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        message: text,
+                        images: allImages,
+                        api_key: userKey,
+                        media_count: sentCount
+                    })
+                });
+
+                const d = await res.json();
+                const tempBox = document.getElementById(tempId);
+                
+                let botHtml = `<div class="bot-text">${d.reply}</div>`;
+                
+                if (d.learned) {
+                    botHtml += `<div style="font-size:11px; color:#a855f7; margin-top:6px;">✨ <i>Đã tự động lưu bài học này vào Két Sắt!</i></div>`;
+                    updateVaultCounter();
+                }
+
+                if (d.video_mp4_url) {
+                    botHtml += `
+                    <div class="cinema-video-card">
+                        <div style="font-size:12px; color:#38bdf8; font-weight:bold; margin-bottom:6px;">🎬 VIDEO KẾT XUẤT:</div>
+                        <video class="cinema-video-player" src="${d.video_mp4_url}" controls autoplay loop playsinline></video>
+                        <div>
+                            <a href="${d.video_mp4_url}" target="_blank" download="ai_phdam_video.mp4" class="btn-download-video">⬇️ Tải Video MP4 về máy</a>
+                        </div>
+                    </div>`;
+                }
+
+                botHtml += `
+                <div class="msg-footer">
+                    <button class="btn-action-msg" onclick="speakMessage(this)">🔊 Nghe đọc</button>
+                    <button class="btn-action-msg btn-save-vault" onclick="quickSaveVault(this)">💾 Lưu Vào Não</button>
+                </div>`;
+
+                tempBox.innerHTML = botHtml;
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            } catch (err) {
+                const tempBox = document.getElementById(tempId);
+                tempBox.innerHTML = `⚠️ Máy chủ đang bận xử lý, bồ bấm ENTER lại nhé!`;
+            }
+        }
+
+        // HÀM ĐỌC GIỌNG NÓI SIÊU MƯỢT - TRIỆT TIÊU 100% DẤU SAO VÀ KÝ TỰ RÁC
+        function speakMessage(btn) {
+            if (!window.speechSynthesis) return alert('Thiết bị chưa hỗ trợ phát âm thanh trực tiếp!');
+            window.speechSynthesis.cancel();
+            
+            const msgBox = btn.closest('.msg');
+            const textBox = msgBox.querySelector('.bot-text');
+            let rawText = textBox ? textBox.innerText : msgBox.innerText;
+            
+            // 1. Gỡ bỏ nút bấm và nhãn hệ thống
+            rawText = rawText.replace(/🔊/g, '')
+                             .replace(/Nghe đọc/g, '')
+                             .replace(/💾/g, '')
+                             .replace(/Lưu Vào Não/g, '')
+                             .replace(/⬇️ Tải Video MP4 về máy/g, '')
+                             .replace(/🎬 VIDEO KẾT XUẤT.*/g, '')
+                             .replace(/Siêu Nhân/gi, '')
+                             .replace(/Đại đế/gi, '')
+                             .replace(/Emperor/gi, '');
+
+            // 2. Xóa sạch vĩnh viễn 100% tất cả dấu sao, dấu nháy kép, dấu gạch ngang rườm rà
+            let clean = rawText.replaceAll('*', '')
+                               .replaceAll('`', '')
+                               .replaceAll('#', '')
+                               .replaceAll('_', '')
+                               .replaceAll('~', '')
+                               .replaceAll('>', '')
+                               .replaceAll('"', '')
+                               .replaceAll("'", '')
+                               .replaceAll('•', ', ')
+                               .replace(/[-]{2,}/g, ' ')
+                               .replace(/\s+/g, ' ')
+                               .trim();
+
+            // 3. Mở đầu bằng lời chào thân mật chuẩn xác theo ý bồ
+            let finalSpeech = "Bồ ơi tui đọc cho bồ nghe nhen. " + clean;
+            
+            const utterance = new SpeechSynthesisUtterance(finalSpeech);
+            utterance.lang = 'vi-VN';
+            utterance.rate = 0.95; // Tốc độ chuẩn, ấm áp, ngắt nghỉ rõ ràng
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        let recognition;
+        function toggleMic() {
+            const mic = document.getElementById('micBtn');
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) return alert('Trình duyệt chưa hỗ trợ micro trực tiếp, bồ gõ phím nhé!');
+            if (recognition) { recognition.stop(); recognition = null; mic.style.color = '#38bdf8'; return; }
+            recognition = new SpeechRec();
+            recognition.lang = 'vi-VN';
+            recognition.start();
+            mic.style.color = '#ef4444';
+            recognition.onresult = (e) => {
+                document.getElementById('chatInput').value = e.results[0][0].transcript;
+                recognition.stop();
+                recognition = null;
+                mic.style.color = '#38bdf8';
+                sendPayload();
+            };
+            recognition.onerror = () => { recognition = null; mic.style.color = '#38bdf8'; };
+        }
+    </script>
+</body>
+</html>
+"""
+
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    return HTML_PAGE
+
+@app.get("/api/vault-count")
+async def vault_count():
+    vault = get_vault()
+    return {"count": len(vault)}
+
+@app.get("/api/export-brain")
+async def export_brain():
+    vault = get_vault()
+    content = json.dumps(vault, ensure_ascii=False, indent=2)
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=AI_Phdam_Brain_Backup.json"}
+    )
+
+@app.post("/api/save-memory")
+async def save_memory_endpoint(req: Request):
+    data = await req.json()
+    q = data.get("query", "Ghi chú kỹ thuật")
+    a = data.get("answer", "")
+    save_to_vault(q, a)
+    return {"status": "success", "count": len(get_vault())}
+
+@app.post("/api/set-key")
+async def set_key_endpoint(req: Request):
+    data = await req.json()
+    key = data.get("key", "").strip()
+    save_key_to_file(key)
+    return {"status": "success"}
+
+@app.post("/api/chat")
+async def chat_endpoint(req: Request):
+    data = await req.json()
+    msg = data.get("message", "").strip()
+    images = data.get("images", [])
+    client_api_key = data.get("api_key", "").strip()
+
+    if images and len(images) > 0:
+        LAST_STATE["last_images"] = images
+    elif LAST_STATE["last_images"] and any(w in msg.lower() for w in ["số", "thấy", "dây", "ảnh", "hình", "mấy", "đầu dây", "này", "đấu dây", "sơ đồ", "mạch", "plc"]):
+        images = LAST_STATE["last_images"]
+
+    lower_msg = msg.lower()
+
+    # 1. TẠO VIDEO MP4
+    make_video_triggers = ["tạo video", "tạo videos", "làm video", "tạo phim", "làm phim"]
+    if any(k in lower_msg for k in make_video_triggers):
+        hollywood_prompt = build_hollywood_video_prompt(msg)
+        rand_seed = random.randint(1000, 999999)
+        encoded_prompt = urllib.parse.quote(hollywood_prompt)
+        video_mp4_url = f"https://gen.pollinations.ai/video/{encoded_prompt}?seed={rand_seed}&nologo=true"
+
+        reply = (
+            f"🎬 Đã kết xuất video MP4 phân cảnh {LAST_STATE['theme']} thành công cho bồ!<br><br>"
+            "Bồ có thể bấm nút Play để xem trực tiếp hoặc bấm Tải Video MP4 về máy nhé!"
+        )
+        return {"reply": reply, "video_mp4_url": video_mp4_url, "learned": False}
+
+    # 2. CƠ CHẾ ƯU TIÊN NÃO NHÀ
+    if not images:
+        vault_hit = search_local_vault(msg)
+        if vault_hit:
+            clean_reply = clean_markdown_to_clean_html(f"⚡ [Tri thức tự thân từ Két Sắt của bồ]:<br><br>{vault_hit}")
+            return {"reply": clean_reply, "video_mp4_url": None, "learned": False}
+
+    # 3. CÁC BỘ NÃO TỰ ĐỘNG HỖ TRỢ NHAU (AUTO-ORCHESTRATOR)
+    ai_answer = None
+
+    # Ưu tiên số 1: Gọi Google Gemini xử lý hình ảnh và kỹ thuật
+    gemini_out = call_google_gemini_multi(msg, images, client_api_key)
+    if gemini_out and not gemini_out.startswith("LỖI_GOOGLE:") and gemini_out != "CHƯA_CÓ_KEY":
+        ai_answer = gemini_out
+
+    # Nếu Gemini bận hoặc chưa có key: Tự động chuyển tiếp sang DeepSeek-R1
+    if not ai_answer:
+        ai_answer = call_open_model(msg, "deepseek")
+
+    # Nếu DeepSeek bận: Tự động chuyển tiếp sang Meta Llama 3.3
+    if not ai_answer:
+        ai_answer = call_open_model(msg, "llama")
+
+    # 4. BỘ NÃO NỘI BỘ DỰ PHÒNG CHUYÊN SÂU
+    if not ai_answer:
+        if any(w in lower_msg for w in ["hmi", "màn hình", "pass", "password", "mật khẩu", "reset"]):
+            ai_answer = (
+                "Về màn hình cảm ứng HMI: Các cổng giao tiếp chính gồm COM1 RS232 (chân 2 RXD, chân 3 TXD, chân 5 GND) và COM2 RS485 (chân 1 Data+, chân 6 Data-). "
+                "Khi cần xử lý mật khẩu kỹ thuật viên hoặc khôi phục quyền truy cập: Nhà sản xuất hỗ trợ gạt DIP Switch phía sau máy về chế độ Bootloader để Factory Reset, hoặc nạp đè Firmware System Recovery qua thẻ nhớ USB để thiết lập lại mật khẩu quản trị."
+            )
+        elif any(w in lower_msg for w in ["sơ đồ", "mạch", "vẽ", "dây", "plc", "y0", "y1"]):
+            ai_answer = (
+                "Sơ đồ đấu nối giữa PLC FX3S và Biến tần VFD: "
+                "Chân COM của biến tần nối vào chân chung ngõ ra PLC. Ngõ ra Y0 trên PLC nối vào chân FWD (chạy thuận), ngõ ra Y1 nối vào chân REV (chạy nghịch). "
+                "Để chỉnh tốc độ bằng chiết áp ngoài: Cấp nguồn chân 10V và chân GND của biến tần vào hai đầu điện trở, chân giữa biến trở đấu vào chân AI1 (0-10V) để tăng giảm tần số mượt mà."
+            )
+        else:
+            ai_answer = f"Bồ ơi, tui đã ghi nhận câu hỏi '{msg}'. Bồ cần xâu chuỗi sơ đồ mạch, kiểm tra thông số PLC hay biến tần cứ gửi yêu cầu nhé!"
+
+    # Làm sạch toàn bộ dấu sao thô trước khi gửi về giao diện
+    formatted_reply = clean_markdown_to_clean_html(ai_answer)
+    save_to_vault(msg, formatted_reply)
+    return {"reply": formatted_reply, "video_mp4_url": None, "learned": not bool(images)}
