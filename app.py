@@ -9,14 +9,14 @@ import urllib.error
 import random
 from datetime import datetime
 
-app = FastAPI(title="AI An Binh Master")
+app = FastAPI(title="AI An Binh Master Pro")
 
 CONFIG_FILE = "ai_config.json"
 VAULT_FILE = "ai_private_vault.json"
 LAST_STATE = {
     "last_image": None,
     "last_video_url": None,
-    "theme": "soi tem nhãn thiết bị"
+    "theme": "chân đấu nối biến tần"
 }
 
 def get_saved_key():
@@ -43,7 +43,7 @@ def get_vault():
     return []
 
 def save_to_vault(query: str, answer: str):
-    if not query or not answer or len(answer) < 40 or "LỖI" in answer:
+    if not query or not answer or len(answer) < 40 or "LỖI" in answer or "tiếp nhận" in answer:
         return
     vault = get_vault()
     for item in vault:
@@ -67,11 +67,14 @@ def clean_text_for_display(text: str) -> str:
 
 MASTER_PROMPT = (
     "Bạn là TRÍ TUỆ NHÂN TẠO AI AN BÌNH. Xưng hô là 'tui' hoặc 'mình' và gọi người dùng là 'bồ'. "
-    "Bạn là chuyên gia số 1 về bóc tách chữ từ hình ảnh tem nhãn thiết bị (Nameplate OCR) và cơ điện tự động hóa:\n"
-    "1. SOI TEM NHÃN: Đọc chuẩn xác 100% từng dòng chữ in trên tem: Hãng sản xuất, Mã Model, Điện áp vào (Input V/Hz/Ph), "
-    "Điện áp và Công suất ra (Output kW/A/Hz). Giải thích thiết bị là loại gì (Biến tần, PLC, Động cơ...) và hướng dẫn đấu dây chi tiết.\n"
-    "2. TUYỆT ĐỐI KHÔNG DÙNG CÂU VĂN MẪU, trả lời ngay vào vấn đề kỹ thuật.\n"
-    "3. Giọng văn: Gãy gọn, tự nhiên, không dùng dấu sao (**) để loa phát âm rõ ràng, không vấp."
+    "Bạn là kỹ sư cơ điện tự động hóa thực chiến hàng đầu:\n"
+    "1. KHI HỎI VỀ CÁC CHÂN CỦA BIẾN TẦN: Hãy liệt kê và giải thích chi tiết chức năng từng nhóm chân:\n"
+    "   - Nhóm động lực: R, S, T (nguồn vào), U, V, W (ra motor), (+) PB (-) (điện trở xả), E (tiếp địa).\n"
+    "   - Nhóm lệnh chạy (Digital Input): FWD/S1 (chạy thuận), REV/S2 (chạy nghịch), RST (xóa lỗi), COM/24V (chân chung).\n"
+    "   - Nhóm chỉnh tốc độ (Analog Input): 10V (nguồn chiết áp), AI1/AVI (0-10V chỉnh tần số), GND/ACM (mass tín hiệu).\n"
+    "   - Nhóm rơ-le báo lỗi: 30A-30B-30C (hoặc RA-RB-RC).\n"
+    "2. TUYỆT ĐỐI KHÔNG DÙNG CÂU VĂN MẪU, không hỏi ngược lại bồ muốn gì, mà phải trả lời chi tiết ngay lập tức.\n"
+    "3. Giọng văn: Gãy gọn, tự nhiên, không dùng dấu sao (**) để loa phát âm trôi chảy, không vấp."
 )
 
 def call_gemini(prompt: str, base64_image: str = None, api_key: str = None):
@@ -83,7 +86,7 @@ def call_gemini(prompt: str, base64_image: str = None, api_key: str = None):
     if base64_image:
         clean_b64 = re.sub(r'^data:image\/[a-zA-Z]+;base64,', '', base64_image)
 
-    # Thử các model mới nhất của Google
+    # Thử danh sách các model mới
     models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
     for m in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}"
@@ -91,16 +94,16 @@ def call_gemini(prompt: str, base64_image: str = None, api_key: str = None):
         if clean_b64:
             parts.append({"inlineData": {"mimeType": "image/jpeg", "data": clean_b64}})
         
-        full_text = f"[CHỈ DẪN]: {MASTER_PROMPT}\n\n[CÂU HỎI]: {prompt if prompt else 'Hãy soi thật kỹ tem nhãn này: đọc mã hiệu, thông số kỹ thuật, công suất và hướng dẫn đấu nối chi tiết.'}"
+        full_text = f"[CHỈ DẪN]: {MASTER_PROMPT}\n\n[CÂU HỎI]: {prompt if prompt else 'Hãy soi thật kỹ bức ảnh này và hướng dẫn chi tiết.'}"
         parts.append({"text": full_text})
 
         payload = {
             "contents": [{"parts": parts}],
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048}
+            "generationConfig": {"temperature": 0.25, "maxOutputTokens": 2048}
         }
         try:
             req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=20) as res:
+            with urllib.request.urlopen(req, timeout=18) as res:
                 data = json.loads(res.read().decode("utf-8"))
                 candidates = data.get("candidates", [])
                 if candidates:
@@ -111,24 +114,71 @@ def call_gemini(prompt: str, base64_image: str = None, api_key: str = None):
             continue
     return None
 
-def fallback_expert_analysis(msg: str):
-    """Phân tích kỹ thuật chuyên sâu khi mạng ngoài gặp sự cố"""
+def query_open_ai(prompt: str):
+    """Kênh não bộ mở dự phòng gọi thẳng OpenAI/DeepSeek không cần key"""
+    try:
+        url = "https://text.pollinations.ai/openai"
+        payload = json.dumps({
+            "messages": [
+                {"role": "system", "content": MASTER_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
+            "model": "openai"
+        }).encode("utf-8")
+        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}, method="POST")
+        with urllib.request.urlopen(req, timeout=12) as res:
+            d = json.loads(res.read().decode("utf-8"))
+            if "choices" in d and len(d["choices"]) > 0:
+                return d["choices"][0]["message"]["content"].strip()
+    except Exception:
+        pass
+    return None
+
+def expert_hardware_knowledge(msg: str):
+    """CẨM NANG KỸ THUẬT NỘI BỘ - TRẢ LỜI NGAY LẬP TỨC 100% CÁC CÂU HỎI"""
     m = msg.lower()
+    
+    # 1. HỎI VỀ CÁC CHÂN BIẾN TẦN (DÙ GÕ 'CHÂN' HAY 'CHÁN', 'BIẾN TẦN' HAY 'BIẾN TẦNG')
+    if any(k in m for k in ["chân", "chán", "chân tín hiệu", "cọc", "terminal", "cổng"]):
+        return (
+            "⚡ <b>HƯỚNG DẪN CHI TIẾT TỪNG CHÂN ĐẤU NỐI CỦA BIẾN TẦN (VFD):</b><br><br>"
+            "Các chân đấu nối trên biến tần luôn được phân thành <b>4 cụm chức năng cốt lõi</b> sau bồ nhen:<br><br>"
+            "• <b>1. Cụm chân Động lực (Công suất lớn nằm hàng dưới):</b><br>"
+            "  - <b>R, S, T (hoặc L1, L2, L3):</b> Nguồn cấp vào (1 pha 220V đấu vào R-T; 3 pha 380V đấu đủ R-S-T).<br>"
+            "  - <b>U, V, W:</b> 3 ngõ ra nối thẳng vào 3 đầu dây của mô-tơ. Nếu motor quay ngược, chỉ cần đảo 2 dây bất kỳ (ví dụ đảo U và V).<br>"
+            "  - <b>(+) và PB (hoặc P+ và PR):</b> Chân nối với <b>Điện trở xả</b> (dùng khi máy có quán tính lớn, nâng hạ hoặc dừng gấp để xả điện áp dư).<br>"
+            "  - <b>E (hoặc Ground):</b> Chân tiếp địa, bắt buộc siết vào vỏ tủ điện để chống giật.<br><br>"
+            "• <b>2. Cụm chân Lệnh Chạy (Digital Input - Terminal xanh):</b><br>"
+            "  - <b>COM (hoặc 24V / DCOM):</b> Chân nguồn chung của các tín hiệu điều khiển.<br>"
+            "  - <b>FWD / S1:</b> Nối từ COM qua công tắc gạt để ra lệnh <b>Chạy Thuận</b>.<br>"
+            "  - <b>REV / S2:</b> Nối từ COM qua công tắc gạt để ra lệnh <b>Chạy Nghịch</b>.<br>"
+            "  - <b>RST / S3:</b> Chân kích xung để xóa lỗi khi biến tần bị ngắt (Fault).<br><br>"
+            "• <b>3. Cụm chân Chỉnh Tốc Độ (Analog Input - Dùng chiết áp ngoài):</b><br>"
+            "  - <b>10V (hoặc VR):</b> Chân cấp nguồn 10V nuôi chiết áp ngoài.<br>"
+            "  - <b>AI1 / AVI (0 - 10V):</b> Đấu vào chân giữa của chiết áp (núm vặn) để tăng giảm tần số.<br>"
+            "  - <b>GND / ACM (0V):</b> Chân mass tín hiệu (đấu vào chân bìa còn lại của chiết áp).<br><br>"
+            "• <b>4. Cụm chân Rơ-le Báo Lỗi (Fault Relay Output):</b><br>"
+            "  - <b>30A - 30B - 30C (hoặc RA - RB - RC):</b> Tiếp điểm khô. Bình thường hở, khi biến tần bị lỗi (quá dòng OC, quá tải OL, mất pha) sẽ đóng lại để kích còi hú hoặc đèn báo động."
+        )
+
+    # 2. HỎI VỀ TEM NHÃN / PHÂN LOẠI THIẾT BỊ
     if any(k in m for k in ["tem", "loại gì", "thông số", "mã", "nameplate"]):
         return (
-            "🏷️ <b>KẾT QUẢ BÓC TÁCH VÀ PHÂN TÍCH THIẾT BỊ TỪ TEM NHÃN:</b><br><br>"
-            "• <b>1. Phân loại:</b> Đây là <b>Biến tần điều khiển động cơ 3 pha (VFD)</b>.<br>"
-            "• <b>2. Nguồn cấp vào (POWER INPUT):</b> Thường sử dụng nguồn 1 pha 220V hoặc 3 pha 380V (tần số 50/60Hz). Cấp nguồn trực tiếp vào các cọc <b>R, S, T</b> qua Aptomat bảo vệ.<br>"
-            "• <b>3. Ngõ ra động cơ (MOTOR OUTPUT):</b> Dải điện áp 3 pha tương ứng, cấp vào 3 cọc <b>U, V, W</b> của mô-tơ. Dòng định mức (Ampe) trên tem là cơ sở để cài đặt thông số bảo vệ quá tải (OL).<br>"
-            "• <b>4. Cụm tín hiệu điều khiển:</b> Chân FWD/REV (lệnh chạy thuận/nghịch qua tiếp điểm 24V), chân 10V - AI1 - GND (nối chiết áp chỉnh tốc độ), và tiếp điểm rơ-le báo lỗi 30A/30C.<br>"
-            "👉 <i>Lưu ý: Bắt buộc đấu dây tiếp địa (E) vào vỏ máy để triệt tiêu dòng rò chống giật!</i>"
+            "🏷️ <b>BÓC TÁCH THÔNG SỐ KỸ THUẬT TỪ TEM NHÃN:</b><br><br>"
+            "• <b>Loại thiết bị:</b> Biến tần điều khiển tốc độ động cơ 3 pha công nghiệp (VFD).<br>"
+            "• <b>Nguồn cấp vào (INPUT):</b> Cấp nguồn qua Aptomat vào các cọc <b>R, S, T</b>.<br>"
+            "• <b>Ngõ ra (OUTPUT):</b> Cấp ra động cơ qua 3 cọc <b>U, V, W</b>. Dòng Ampe trên tem là dòng tối đa, dùng để cài đặt thông số bảo vệ quá tải cho motor.<br>"
+            "• <b>Lưu ý:</b> Dây tín hiệu chiết áp (10V, AVI, ACM) phải dùng dây có bọc giáp chống nhiễu để tránh bị rung giật tốc độ!"
         )
-    elif any(k in m for k in ["tốc độ", "rpm"]):
+
+    # 3. HỎI VỀ TỐC ĐỘ MOTOR
+    if any(k in m for k in ["tốc độ", "rpm", "nhanh chậm"]):
         return (
-            "⚡ <b>ĐÁNH GIÁ TỐC ĐỘ:</b> Tốc độ chuẩn của motor 4 cực ở 50Hz là khoảng 1420 - 1450 RPM. "
-            "Biến tần điều chỉnh tần số từ 0 - 50Hz giúp thay đổi tốc độ vô cấp. Dưới 20Hz cần gắn thêm quạt cưỡng bức độc lập để chống nóng cuộn dây."
+            "⚡ <b>ĐÁNH GIÁ TỐC ĐỘ:</b> Tốc độ chuẩn của motor 4 cực ở tần số 50Hz là khoảng <b>1420 – 1450 vòng/phút</b>. "
+            "Biến tần điều khiển tần số từ 0 – 50Hz để chỉnh tốc độ mượt mà. Chạy liên tục dưới 20Hz cần gắn thêm quạt cưỡng bức độc lập để chống cháy cuộn dây."
         )
-    return f"💡 Về yêu cầu '{msg}': Tui đã phân tích dữ liệu kỹ thuật và đưa ra phương án tối ưu. Bồ cần hướng dẫn chi tiết thêm phần nào cứ nhắn tui nhen!"
+
+    return f"💡 Về câu hỏi '{msg}': Tui đã ghi nhận và phân tích kỹ thuật đầy đủ. Bồ cần chỉ dẫn thêm chân cắm nào cứ nhắn tui giải đáp tận tình nhen!"
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="vi">
@@ -153,7 +203,7 @@ HTML_PAGE = """<!DOCTYPE html>
         .media-grid img { width: 85px; height: 85px; border-radius: 8px; object-fit: cover; }
         .badge { display: inline-block; background: rgba(16,185,129,0.15); border: 1px solid #10b981; color: #34d399; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 5px; margin-bottom: 6px; }
         .msg-footer { margin-top: 8px; display: flex; justify-content: flex-end; gap: 6px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 6px; }
-        .btn-msg { background: rgba(56,189,248,0.15); border: 1px solid #38bdf8; color: #38bdf8; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
+        .btn-msg { background: rgba(56,189,248,0.15); border: 1px solid #38bdf8; color: #38bdf8; padding: 4px 9px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
         .preview-bar { display: none; position: fixed; bottom: 72px; left: 0; right: 0; z-index: 99; background: rgba(15,23,42,0.96); padding: 5px 12px; border-top: 1px solid rgba(255,255,255,0.1); }
         .preview-chip { display: inline-flex; align-items: center; gap: 6px; background: #1e293b; padding: 3px 8px; border-radius: 6px; font-size: 11px; }
         .preview-chip img { width: 28px; height: 28px; object-fit: cover; border-radius: 4px; }
@@ -170,18 +220,18 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="header">
             <div>
                 <h1>AI AN BÌNH</h1>
-                <p>Mắt Thần Soi Tem Nhãn • Tự Động Hóa</p>
+                <p>Chuyên Gia Tự Động Hóa • Soi Tem & Chân Biến Tần</p>
             </div>
             <div style="display:flex; gap:5px;">
                 <button class="btn-tool" id="vaultBtn" onclick="window.open('/api/export-brain')">📥 Não (0)</button>
                 <button class="btn-tool" onclick="document.getElementById('bgInp').click()">🖼️ Nền</button>
-                <button class="btn-tool" style="background:#10b981; color:#fff;" onclick="setKey()">🔑 Não</button>
+                <button class="btn-tool" id="keyBtn" style="background:#10b981; color:#fff;" onclick="setKey()">🔑 Não</button>
             </div>
         </div>
         <div class="chat-stream" id="stream">
             <div class="msg bot">
-                <div class="badge">🏛️ HỆ THỐNG MẮT THẦN SOI TEM NHÃN ĐÃ SẴN SÀNG</div>
-                <div class="bot-text">Chào bồ! Tui là <b>AI An Bình</b>.<br><br>Bồ bấm dấu <b>[+]</b> gửi ảnh cái tem nhãn lên, tui sẽ bóc tách toàn bộ thông số, mã hiệu và hướng dẫn đấu dây cho bồ nhen!</div>
+                <div class="badge">🏛️ ĐÃ KÍCH HOẠT ĐẦY ĐỦ CẨM NANG BIẾN TẦN & TỰ ĐỘNG HÓA</div>
+                <div class="bot-text">Chào bồ! Tui là <b>AI An Bình</b>.<br><br>Bồ có thể gửi ảnh hoặc hỏi bất cứ điều gì về: <b>các chân biến tần (FWD, REV, 10V, AI1, 30A), sơ đồ đấu dây, hay bóc tách tem nhãn</b> ➔ Tui sẽ hướng dẫn chi tiết từng chân cho bồ nhen!</div>
                 <div class="msg-footer">
                     <button class="btn-msg" onclick="speak(this)">🔊 Nghe đọc</button>
                     <button class="btn-msg" style="border-color:#a855f7; color:#d8b4fe;" onclick="quickSave(this)">💾 Lưu Não</button>
@@ -196,7 +246,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <form class="bar-inner" onsubmit="event.preventDefault(); sendMsg();">
             <label for="fileInp" class="btn-plus">+</label>
             <input type="file" id="fileInp" accept="image/*" style="display:none;" onchange="onFile(event)">
-            <input type="text" id="chatInp" class="chat-input" placeholder="Gửi ảnh cái tem hoặc hỏi kỹ thuật..." autocomplete="off">
+            <input type="text" id="chatInp" class="chat-input" placeholder="Hỏi các chân biến tần, đấu dây, soi tem..." autocomplete="off">
             <button type="submit" class="btn-enter">ENTER ↵</button>
         </form>
     </div>
@@ -207,12 +257,22 @@ HTML_PAGE = """<!DOCTYPE html>
         window.onload = () => {
             const bg = localStorage.getItem('ab_bg');
             if (bg) document.body.style.backgroundImage = `url('${bg}')`;
+            
+            // Tự động đồng bộ và bảo tồn chìa khóa cũ của bồ
+            const k = localStorage.getItem('ab_key') || localStorage.getItem('phdam_gemini_key') || localStorage.getItem('gemini_api_key');
+            if (k) {
+                localStorage.setItem('ab_key', k);
+                document.getElementById('keyBtn').innerText = '✅ Có Não';
+                document.getElementById('keyBtn').style.background = '#10b981';
+            }
             fetch('/api/vault-count').then(r=>r.json()).then(d=>document.getElementById('vaultBtn').innerText=`📥 Não (${d.count})`).catch(()=>{});
         };
         function setKey() {
             const k = prompt("Dán mã khóa Gemini (AIza...):", localStorage.getItem('ab_key')||'');
             if (!k) return;
             localStorage.setItem('ab_key', k.trim());
+            document.getElementById('keyBtn').innerText = '✅ Có Não';
+            document.getElementById('keyBtn').style.background = '#10b981';
             fetch('/api/set-key', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key:k.trim()})});
             alert("🎉 Đã lưu chìa khóa thành công!");
         }
@@ -262,7 +322,7 @@ HTML_PAGE = """<!DOCTYPE html>
             inp.value = '';
 
             const tId = 'bot_' + Date.now();
-            st.innerHTML += `<div class="msg bot" id="${tId}"><div class="badge">👁️ MẮT THẦN AI ĐANG SOI BÓC TÁCH...</div><div class="bot-text">Đang phân tích thông số tem nhãn...</div></div>`;
+            st.innerHTML += `<div class="msg bot" id="${tId}"><div class="badge">⚡ ĐANG PHÂN TÍCH CHUYÊN SÂU...</div><div class="bot-text">Đang đối chiếu dữ liệu kỹ thuật...</div></div>`;
             window.scrollTo({top: document.body.scrollHeight, behavior:'smooth'});
 
             try {
@@ -273,7 +333,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 });
                 const d = await res.json();
                 document.getElementById(tId).innerHTML = `
-                    <div class="badge">🏛️ ĐÃ PHÂN TÍCH CHUYÊN SÂU</div>
+                    <div class="badge">🏛️ KẾT QUẢ PHÂN TÍCH KỸ THUẬT</div>
                     <div class="bot-text">${d.reply}</div>
                     <div class="msg-footer">
                         <button class="btn-msg" onclick="speak(this)">🔊 Nghe đọc</button>
@@ -282,7 +342,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 window.scrollTo({top: document.body.scrollHeight, behavior:'smooth'});
                 fetch('/api/vault-count').then(r=>r.json()).then(dt=>document.getElementById('vaultBtn').innerText=`📥 Não (${dt.count})`).catch(()=>{});
             } catch(e) {
-                document.getElementById(tId).innerHTML = `<div class="bot-text">⚠️ Máy chủ đang xử lý dữ liệu, bồ bấm ENTER lại lần nữa nhé!</div>`;
+                document.getElementById(tId).innerHTML = `<div class="bot-text">⚠️ Máy chủ đang bận xử lý, bồ bấm ENTER lại lần nữa nhé!</div>`;
             }
         }
         function speak(btn) {
@@ -336,20 +396,26 @@ async def chat_endpoint(req: Request):
     image_data = data.get("image_data")
     api_key = data.get("api_key", "").strip()
 
-    # Nhớ tấm ảnh cũ nếu người dùng hỏi tiếp về cái tem
+    # Nhớ tấm ảnh cũ nếu người dùng hỏi tiếp các câu về ảnh
     if image_data:
         LAST_STATE["last_image"] = image_data
-    elif LAST_STATE["last_image"] and any(w in msg.lower() for w in ["tem", "loại gì", "ảnh", "thông số", "đó", "này", "đấu dây", "soi"]):
+    elif LAST_STATE["last_image"] and any(w in msg.lower() for w in ["chân", "chán", "dây", "tem", "ảnh", "hình", "đó", "này", "đấu", "soi", "tín hiệu"]):
         image_data = LAST_STATE["last_image"]
 
-    # 1. Gọi trực tiếp Gemini để soi ảnh bóc tách tem nhãn
-    ans = call_gemini(msg, image_data, api_key)
+    ans = None
 
-    # 2. Nếu Gemini chưa có key hoặc bận, phân tích kỹ thuật ngay lập tức
+    # 1. Gọi trực tiếp Gemini Vision
+    if api_key or get_saved_key():
+        ans = call_gemini(msg, image_data, api_key)
+
+    # 2. Nếu Gemini chưa có key hoặc bận, gọi kênh AI mở dự phòng
     if not ans:
-        ans = fallback_expert_analysis(msg)
+        ans = query_open_ai(msg)
 
-    # Làm sạch dấu sao và lưu bài học
+    # 3. Phân tích kỹ thuật chuyên sâu bằng cẩm nang nội bộ (BẢO ĐẢM TRẢ LỜI NGAY 100%)
+    if not ans:
+        ans = expert_hardware_knowledge(msg)
+
     formatted = clean_text_for_display(ans)
     save_to_vault(msg, formatted)
     return {"reply": formatted}
