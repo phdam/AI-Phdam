@@ -8,7 +8,7 @@ import urllib.parse
 import urllib.error
 from datetime import datetime
 
-app = FastAPI(title="AI An Binh Master Final")
+app = FastAPI(title="AI An Binh Fix Key Final")
 
 CONFIG_FILE = "ai_config.json"
 VAULT_FILE = "ai_private_vault.json"
@@ -68,16 +68,17 @@ def clean_text_for_display(text: str) -> str:
     return text.replace('*', '')
 
 EXPERT_SYSTEM_PROMPT = (
-    "Bạn là TRÍ TUỆ NHÂN TẠO AI AN BÌNH - Kỹ sư trưởng thực chiến chuyên sâu về Điện Công Nghiệp, Tự Động Hóa, Contactor (Khởi động từ), Aptomat (CB), Rơ-le, Biến Tần và PLC. "
+    "Bạn là TRÍ TUỆ NHÂN TẠO AI AN BÌNH - Kỹ sư trưởng thực chiến chuyên sâu về Điện Công Nghiệp, Tự Động Hóa, Contactor, Aptomat (CB), Rơ-le, Biến Tần và PLC. "
     "Xưng hô 'tui' hoặc 'mình' và gọi người dùng là 'bồ'. "
     "QUY TẮC BẮT BUỘC: "
-    "1. Phân tích chính xác thiết bị mà người dùng đang hỏi hoặc gửi ảnh (Contactor là contactor, Aptomat là aptomat, Biến tần là biến tần, v.v.). Tuyệt đối không nhầm lẫn hay rập khuôn. "
-    "2. Nếu có hình ảnh, hãy soi thật kỹ tem nhãn, thông số định mức (Ampe, Volt), ký hiệu chân (A1-A2, 1L1-2T1, NO, NC...). "
+    "1. Phân tích chính xác thiết bị mà người dùng đang hỏi hoặc gửi ảnh. Tuyệt đối không nhầm lẫn hay rập khuôn. "
+    "2. Nếu có hình ảnh, soi thật kỹ tem nhãn, thông số định mức, ký hiệu chân. "
     "3. Hướng dẫn đấu nối thực tế, ngắn gọn, dễ hiểu, an toàn. "
-    "4. Văn phong gãy gọn, tự nhiên, KHÔNG dùng dấu sao (**) để hệ thống đọc âm thanh mượt mà."
+    "4. Văn phong gãy gọn, tự nhiên, KHÔNG dùng dấu sao (**)."
 )
 
 def call_google_gemini_api(prompt: str, base64_image: str, history_list: list, api_key: str = None):
+    # Ưu tiên lấy key từ client truyền lên, nếu không có thì lấy từ server
     key = api_key if (api_key and api_key.startswith("AIza")) else get_saved_key()
     if not key or not key.startswith("AIza"):
         return "⚠️ **Chưa có mã khóa API (Key)!** Bồ bấm vào nút màu cam [🔑 Não] ở góc trên bên phải màn hình, dán mã khóa `AIza...` của bồ vào là xong nhen."
@@ -86,7 +87,6 @@ def call_google_gemini_api(prompt: str, base64_image: str, history_list: list, a
     if base64_image:
         clean_b64 = re.sub(r'^data:image\/[a-zA-Z]+;base64,', '', base64_image)
 
-    # Xây dựng lịch sử trò chuyện
     contents = []
     if history_list and len(history_list) > 0:
         for h in history_list[-4:]:
@@ -96,19 +96,17 @@ def call_google_gemini_api(prompt: str, base64_image: str, history_list: list, a
                 "parts": [{"text": h.get("text", "")}]
             })
 
-    # Lượt hiện tại
     current_parts = []
     if clean_b64:
         current_parts.append({"inlineData": {"mimeType": "image/jpeg", "data": clean_b64}})
 
     full_message = (
         f"[CHỈ DẪN NGHIỆP VỤ]: {EXPERT_SYSTEM_PROMPT}\n\n"
-        f"[CÂU HỎI CỦA BỒ]: {prompt if prompt else 'Hãy soi kỹ thiết bị trong ảnh và phân tích chi tiết bản chất, thông số và cách đấu nối.'}"
+        f"[CÂU HỎI CỦA BỒ]: {prompt if prompt else 'Hãy soi kỹ thiết bị trong ảnh và phân tích chi tiết.'}"
     )
     current_parts.append({"text": full_message})
     contents.append({"role": "user", "parts": current_parts})
 
-    # Danh sách các model chính thức của Google
     models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
     last_error = ""
 
@@ -142,14 +140,14 @@ def call_google_gemini_api(prompt: str, base64_image: str, history_list: list, a
             last_error = str(e)
             continue
 
-    return f"⚠️ **Lỗi kết nối Google API ({last_error}):** Không thể gọi được vào siêu não. Bồ hãy kiểm tra lại mã khóa API (Key) xem đã đúng chưa nhé!"
+    return f"⚠️ **Lỗi kết nối Google API ({last_error}):** Kiểm tra lại mã khóa API (Key) xem còn hoạt động không nhé!"
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI AN BÌNH - MASTER</title>
+    <title>AI AN BÌNH</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background: #050811; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; background-size: cover; background-position: center; padding-bottom: 85px; }
@@ -196,8 +194,8 @@ HTML_PAGE = """<!DOCTYPE html>
         </div>
         <div class="chat-stream" id="stream">
             <div class="msg bot">
-                <div class="badge">🧠 HỆ THỐNG MASTER ĐÃ SẴN SÀNG</div>
-                <div class="bot-text">Chào bồ! Tui là <b>AI An Bình</b>.<br><br>Hệ thống đã chuẩn hóa toàn diện. Bồ gửi ảnh Contactor, CB, Biến tần hay hỏi bất kỳ thiết bị nào, tui sẽ phân tích chuẩn xác đúng 100% thiết bị đó cho bồ nhen!</div>
+                <div class="badge">🧠 HỆ THỐNG ĐÃ SẴN SÀNG</div>
+                <div class="bot-text">Chào bồ! Tui là <b>AI An Bình</b>.<br><br>Hệ thống đã nhận diện khóa API trực tiếp từ trình duyệt. Bồ gửi ảnh hoặc gõ câu hỏi, tui phân tích chuẩn xác ngay nhen!</div>
                 <div class="msg-footer">
                     <button class="btn-msg" onclick="speak(this)">🔊 Nghe đọc</button>
                     <button class="btn-msg" style="border-color:#a855f7; color:#d8b4fe;" onclick="quickSave(this)">💾 Lưu Não</button>
@@ -229,19 +227,9 @@ HTML_PAGE = """<!DOCTYPE html>
             fetch('/api/vault-count').then(r=>r.json()).then(d=>document.getElementById('vaultBtn').innerText=`📥 Não (${d.count})`).catch(()=>{});
         };
 
-        async function checkKeyStatus() {
+        function checkKeyStatus() {
             const btn = document.getElementById('keyBtn');
             const localKey = localStorage.getItem('ab_key') || '';
-            try {
-                const res = await fetch('/api/check-key');
-                const d = await res.json();
-                if (d.has_key || (localKey && localKey.startsWith('AIza'))) {
-                    btn.innerText = '✅ CÓ NÃO';
-                    btn.className = 'btn-tool btn-key-on';
-                    if (!localKey && d.key_preview) localStorage.setItem('ab_key', d.key_preview);
-                    return;
-                }
-            } catch(e) {}
             if (localKey && localKey.startsWith('AIza')) {
                 btn.innerText = '✅ CÓ NÃO';
                 btn.className = 'btn-tool btn-key-on';
@@ -257,8 +245,7 @@ HTML_PAGE = """<!DOCTYPE html>
             if (!k) return;
             const clean = k.trim();
             localStorage.setItem('ab_key', clean);
-            document.getElementById('keyBtn').innerText = '✅ CÓ NÃO';
-            document.getElementById('keyBtn').className = 'btn-tool btn-key-on';
+            checkKeyStatus();
             fetch('/api/set-key', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key:clean})});
             alert("🎉 ĐÃ KÍCH HOẠT MÃ KHÓA THÀNH CÔNG!");
         }
@@ -300,7 +287,14 @@ HTML_PAGE = """<!DOCTYPE html>
         async function sendMsg() {
             const inp = document.getElementById('chatInp');
             const txt = inp.value.trim();
+            const apiKey = localStorage.getItem('ab_key') || '';
+            
+            if (!apiKey || !apiKey.startsWith('AIza')) {
+                alert("Bồ chưa dán mã khóa API! Hãy bấm vào nút [🔑 Não] ở góc trên để dán mã khóa vào nhé.");
+                return setKey();
+            }
             if (!txt && !curImg) return alert("Bồ hãy nhập câu hỏi hoặc chọn ảnh nhé!");
+
             const st = document.getElementById('stream');
             let uHtml = `<div class="msg user">`;
             if (curImg) uHtml += `<div class="media-grid"><img src="${curImg}"></div>`;
@@ -328,7 +322,7 @@ HTML_PAGE = """<!DOCTYPE html>
                         message: txt, 
                         image_data: sentImg, 
                         history: convHistory,
-                        api_key: localStorage.getItem('ab_key')||'' 
+                        api_key: apiKey 
                     })
                 });
                 const d = await res.json();
@@ -373,11 +367,6 @@ HTML_PAGE = """<!DOCTYPE html>
 @app.get("/", response_class=HTMLResponse)
 async def home():
     return HTML_PAGE
-
-@app.get("/api/check-key")
-async def check_key():
-    k = get_saved_key()
-    return {"has_key": bool(k), "key_preview": k}
 
 @app.get("/api/vault-count")
 async def vault_count():
