@@ -6,17 +6,12 @@ import re
 import urllib.request
 import urllib.parse
 import urllib.error
-import random
 from datetime import datetime
 
-app = FastAPI(title="AI An Binh True Intelligence")
+app = FastAPI(title="AI An Binh Deep Thinking")
 
 CONFIG_FILE = "ai_config.json"
 VAULT_FILE = "ai_private_vault.json"
-LAST_STATE = {
-    "last_image": None,
-    "last_video_url": None
-}
 
 def get_saved_key():
     if os.path.exists(CONFIG_FILE):
@@ -44,7 +39,7 @@ def get_vault():
     return []
 
 def save_to_vault(query: str, answer: str):
-    if not query or not answer or len(answer) < 30 or "CHƯA_CÓ_NÃO" in answer or "LỖI" in answer:
+    if not query or not answer or len(answer) < 40 or "LỖI" in answer:
         return
     vault = get_vault()
     for item in vault:
@@ -66,17 +61,18 @@ def clean_text_for_display(text: str) -> str:
     text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)
     return text.replace('*', '')
 
-MASTER_PROMPT = (
-    "Bạn là AI AN BÌNH - Bản sao trí tuệ thực thụ của Google Gemini. Xưng hô là 'tui' hoặc 'mình' và gọi người dùng là 'bồ'. "
-    "Bạn là chuyên gia cơ điện tự động hóa, biến tần, PLC số 1. "
-    "Khi người dùng hỏi về ảnh cái tem, con số, hoặc hỏi 'xem nó là biến tần gì', 'phân tích đi': "
-    "Hãy nhìn thật kỹ bức ảnh, đọc đúng tên hãng (Delta, LS, INVT, Mitsubishi, Fuji, Danfoss...), mã model, "
-    "công suất (kW/HP), điện áp nguồn vào (Input), ngõ ra (Output), dòng Ampe định mức và hướng dẫn cách đấu dây chi tiết. "
-    "Tuyệt đối KHÔNG trả lời vòng vo, không hỏi ngược lại bồ cần gì, hãy phân tích trực tiếp và đầy đủ ngay lập tức. "
-    "Văn phong: Mạch lạc, tự nhiên, không chèn các ký tự sao (**) để loa đọc thành tiếng êm tai."
+MASTER_THINKING_PROMPT = (
+    "Bạn là TRÍ TUỆ NHÂN TẠO AI AN BÌNH - Bản sao tư duy cao cấp của Google Gemini. "
+    "Bạn xưng hô thân mật là 'tui' hoặc 'mình' và gọi người dùng là 'bồ'. "
+    "Bạn là kỹ sư trưởng thực chiến về Tự Động Hóa, Cơ Điện Tử, Biến Tần VFD, PLC, Màn hình HMI và Mạch Điện Công Nghiệp.\n\n"
+    "QUY TRÌNH TƯ DUY BẮT BUỘC KHI TRẢ LỜI:\n"
+    "1. HIỂU RÕ Ý ĐỊNH THỰC TẾ: Đọc kỹ câu hỏi và xâu chuỗi với hình ảnh/nội dung hội thoại trước đó. Tuyệt đối không trả lời lệch đề hay qua loa.\n"
+    "2. PHÂN TÍCH HÌNH ẢNH SÂU SẮC: Soi thật kỹ từng chữ, số, mã hiệu, tên hãng, cọc tiếp điểm, chân cắm (R-S-T, U-V-W, FWD, REV, 10V, AI1, COM, 30A/30C...). Thấy gì phân tích nấy, chỉ rõ công dụng và bản chất kỹ thuật.\n"
+    "3. HƯỚNG DẪN THỰC THI CHI TIẾT: Chỉ rõ chân nào đấu đi đâu, dây nào vào cọc nào, lưu ý an toàn chống giật và chống nhiễu.\n"
+    "4. PHONG THÁI: Thông thái, nhiệt tình, thực tế, câu văn tự nhiên, KHÔNG dùng dấu sao (**) để loa đọc thành tiếng êm tai, tròn vành rõ chữ."
 )
 
-def call_gemini(prompt: str, base64_image: str = None, api_key: str = None):
+def call_gemini_thinking(prompt: str, base64_image: str, history_list: list, api_key: str = None):
     key = api_key if (api_key and api_key.startswith("AIza")) else get_saved_key()
     if not key or not key.startswith("AIza"):
         return "CHƯA_CÓ_KEY"
@@ -85,26 +81,50 @@ def call_gemini(prompt: str, base64_image: str = None, api_key: str = None):
     if base64_image:
         clean_b64 = re.sub(r'^data:image\/[a-zA-Z]+;base64,', '', base64_image)
 
-    # Thử lần lượt các mô hình của Google
-    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-3.5-flash", "gemini-3.8-flash"]
+    # Xây dựng chuỗi hội thoại có lịch sử để AI nhớ ngữ cảnh
+    contents = []
+    
+    # Nạp 4 lượt trò chuyện gần nhất để AI hiểu mạch câu chuyện
+    if history_list and len(history_list) > 0:
+        for h in history_list[-4:]:
+            role_name = "user" if h.get("role") == "user" else "model"
+            contents.append({
+                "role": role_name,
+                "parts": [{"text": h.get("text", "")}]
+            })
+
+    # Lượt hiện tại của người dùng
+    current_parts = []
+    if clean_b64:
+        current_parts.append({"inlineData": {"mimeType": "image/jpeg", "data": clean_b64}})
+
+    current_prompt_text = (
+        f"[CHỈ DẪN TƯ DUY]: {MASTER_THINKING_PROMPT}\n\n"
+        f"[YÊU CẦU CỦA BỒ]: {prompt if prompt else 'Hãy soi thật kỹ bức ảnh này và phân tích chi tiết bản chất, thông số và cách đấu nối.'}"
+    )
+    current_parts.append({"text": current_prompt_text})
+    contents.append({"role": "user", "parts": current_parts})
+
+    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-3.5-flash"]
     last_err = ""
 
     for m in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}"
-        parts = []
-        if clean_b64:
-            parts.append({"inlineData": {"mimeType": "image/jpeg", "data": clean_b64}})
-        
-        full_text = f"[CHỈ DẪN]: {MASTER_PROMPT}\n\n[CÂU HỎI]: {prompt if prompt else 'Hãy soi thật kỹ tem nhãn này: đọc rõ hãng sản xuất, mã model, công suất, điện áp và hướng dẫn đấu dây chi tiết.'}"
-        parts.append({"text": full_prompt if 'full_prompt' in locals() else full_text})
-
         payload = {
-            "contents": [{"parts": parts}],
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048}
+            "contents": contents,
+            "generationConfig": {
+                "temperature": 0.4,
+                "maxOutputTokens": 2500
+            }
         }
         try:
-            req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=22) as res:
+            req = urllib.request.Request(
+                url, 
+                data=json.dumps(payload).encode("utf-8"), 
+                headers={"Content-Type": "application/json"}, 
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=25) as res:
                 data = json.loads(res.read().decode("utf-8"))
                 candidates = data.get("candidates", [])
                 if candidates:
@@ -142,7 +162,7 @@ HTML_PAGE = """<!DOCTYPE html>
         .msg.bot { background: rgba(30,41,59,0.95); color: #f8fafc; align-self: flex-start; border: 1px solid rgba(255,255,255,0.08); }
         .msg.user { background: #2563eb; color: #fff; align-self: flex-end; }
         .media-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-        .media-grid img { width: 85px; height: 85px; border-radius: 8px; object-fit: cover; }
+        .media-grid img { width: 90px; height: 90px; border-radius: 8px; object-fit: cover; }
         .badge { display: inline-block; background: rgba(16,185,129,0.15); border: 1px solid #10b981; color: #34d399; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 5px; margin-bottom: 6px; }
         .msg-footer { margin-top: 8px; display: flex; justify-content: flex-end; gap: 6px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 6px; }
         .btn-msg { background: rgba(56,189,248,0.15); border: 1px solid #38bdf8; color: #38bdf8; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
@@ -162,7 +182,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="header">
             <div>
                 <h1>AI AN BÌNH</h1>
-                <p>Mắt Thần Soi Tem Nhãn & Chân Biến Tần</p>
+                <p>Tư Duy Đa Tầng • Chuyên Gia Tự Động Hóa</p>
             </div>
             <div style="display:flex; gap:5px;">
                 <button class="btn-tool" id="vaultBtn" onclick="window.open('/api/export-brain')">📥 Não (0)</button>
@@ -172,8 +192,8 @@ HTML_PAGE = """<!DOCTYPE html>
         </div>
         <div class="chat-stream" id="stream">
             <div class="msg bot">
-                <div class="badge">🏛️ MẮT THẦN GOOGLE GEMINI ĐÃ SẴN SÀNG</div>
-                <div class="bot-text">Chào bồ! Tui là <b>AI An Bình</b>.<br><br>👉 Nếu nút góc trên đang hiện màu cam <b>[🔑 Não]</b>, bồ bấm vào dán mã khóa Google để thức tỉnh não bộ nhen! Sau đó gửi ảnh cái tem lên, tui sẽ soi thông số và trả lời rành mạch cho bồ!</div>
+                <div class="badge">🧠 NÃO BỘ TƯ DUY ĐA TẦNG ĐÃ KÍCH HOẠT</div>
+                <div class="bot-text">Chào bồ! Tui là <b>AI An Bình</b>.<br><br>Hệ thống hiện đã nhớ được toàn bộ mạch câu chuyện và nhận diện ảnh độ nét cao. Bồ gửi ảnh cái tem, dây điện hoặc hỏi bất kỳ bài toán kỹ thuật nào, tui sẽ phân tích sâu sắc đúng trọng tâm cho bồ nhen!</div>
                 <div class="msg-footer">
                     <button class="btn-msg" onclick="speak(this)">🔊 Nghe đọc</button>
                     <button class="btn-msg" style="border-color:#a855f7; color:#d8b4fe;" onclick="quickSave(this)">💾 Lưu Não</button>
@@ -188,7 +208,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <form class="bar-inner" onsubmit="event.preventDefault(); sendMsg();">
             <label for="fileInp" class="btn-plus">+</label>
             <input type="file" id="fileInp" accept="image/*" style="display:none;" onchange="onFile(event)">
-            <input type="text" id="chatInp" class="chat-input" placeholder="Gửi ảnh cái tem hoặc hỏi kỹ thuật..." autocomplete="off">
+            <input type="text" id="chatInp" class="chat-input" placeholder="Hỏi biến tần, đấu dây, soi tem..." autocomplete="off">
             <button type="submit" class="btn-enter">ENTER ↵</button>
         </form>
     </div>
@@ -196,11 +216,11 @@ HTML_PAGE = """<!DOCTYPE html>
 
     <script>
         let curImg = null;
+        let convHistory = []; // Lưu lại lịch sử hội thoại để AI luôn nhớ ngữ cảnh
+
         window.onload = () => {
             const bg = localStorage.getItem('ab_bg');
             if (bg) document.body.style.backgroundImage = `url('${bg}')`;
-            
-            // Tự động kiểm tra chìa khóa
             checkKeyStatus();
             fetch('/api/vault-count').then(r=>r.json()).then(d=>document.getElementById('vaultBtn').innerText=`📥 Não (${d.count})`).catch(()=>{});
         };
@@ -220,13 +240,13 @@ HTML_PAGE = """<!DOCTYPE html>
 
         function setKey() {
             const oldK = localStorage.getItem('ab_key') || '';
-            const k = prompt("Dán mã khóa Google Gemini (bắt đầu bằng AIza...):", oldK);
+            const k = prompt("Dán mã khóa Google Gemini (AIza...):", oldK);
             if (!k) return;
             const clean = k.trim();
             localStorage.setItem('ab_key', clean);
             checkKeyStatus();
             fetch('/api/set-key', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key:clean})});
-            alert("🎉 ĐÃ KÍCH HOẠT NÃO THẬT THÀNH CÔNG! Nút đã chuyển sang màu xanh lá!");
+            alert("🎉 ĐÃ KÍCH HOẠT THÀNH CÔNG! Nút đã chuyển sang màu xanh lá!");
         }
 
         function onBg(e) {
@@ -236,6 +256,8 @@ HTML_PAGE = """<!DOCTYPE html>
             r.onload = ev => { document.body.style.backgroundImage = `url('${ev.target.result}')`; localStorage.setItem('ab_bg', ev.target.result); };
             r.readAsDataURL(f);
         }
+
+        // NÂNG CẤP ĐỘ PHÂN GIẢI ẢNH LÊN 1800PX: RÕ NÉT TỪNG CHỮ VÀ SỐ NHỎ
         function onFile(e) {
             const f = e.target.files[0];
             if (!f) return;
@@ -245,10 +267,14 @@ HTML_PAGE = """<!DOCTYPE html>
                 img.onload = () => {
                     const c = document.createElement('canvas');
                     let w = img.width, h = img.height;
-                    if (w > 900) { h = Math.round((h * 900) / w); w = 900; }
+                    const maxDim = 1800; // Giữ độ nét cao để đọc tem nhãn
+                    if (w > maxDim || h > maxDim) {
+                        if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+                        else { w = Math.round((w * maxDim) / h); h = maxDim; }
+                    }
                     c.width = w; c.height = h;
                     c.getContext('2d').drawImage(img, 0, 0, w, h);
-                    curImg = c.toDataURL('image/jpeg', 0.8);
+                    curImg = c.toDataURL('image/jpeg', 0.88);
                     document.getElementById('prevChip').innerHTML = `<img src="${curImg}"><span>${f.name}</span> <b onclick="curImg=null;document.getElementById('prevBar').style.display='none';" style="cursor:pointer;color:#ef4444;margin-left:5px;">×</b>`;
                     document.getElementById('prevBar').style.display = 'block';
                 };
@@ -257,6 +283,7 @@ HTML_PAGE = """<!DOCTYPE html>
             r.readAsDataURL(f);
             e.target.value = '';
         }
+
         async function sendMsg() {
             const inp = document.getElementById('chatInp');
             const txt = inp.value.trim();
@@ -274,19 +301,31 @@ HTML_PAGE = """<!DOCTYPE html>
             document.getElementById('prevBar').style.display = 'none';
             inp.value = '';
 
+            // Lưu vào lịch sử người dùng
+            if (txt) convHistory.push({ role: "user", text: txt });
+
             const tId = 'bot_' + Date.now();
-            st.innerHTML += `<div class="msg bot" id="${tId}"><div class="badge">👁️ MẮT THẦN GEMINI ĐANG SOI CHI TIẾT...</div><div class="bot-text">Đang phân tích dữ liệu tem nhãn...</div></div>`;
+            st.innerHTML += `<div class="msg bot" id="${tId}"><div class="badge">🧠 ĐANG VẬN HÀNH TƯ DUY ĐA TẦNG...</div><div class="bot-text">Đang phân tích sâu sắc yêu cầu của bồ...</div></div>`;
             window.scrollTo({top: document.body.scrollHeight, behavior:'smooth'});
 
             try {
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ message: txt, image_data: sentImg, api_key: localStorage.getItem('ab_key')||'' })
+                    body: JSON.stringify({ 
+                        message: txt, 
+                        image_data: sentImg, 
+                        history: convHistory,
+                        api_key: localStorage.getItem('ab_key')||'' 
+                    })
                 });
                 const d = await res.json();
+                
+                // Lưu câu trả lời vào lịch sử để câu sau nhớ tiếp
+                convHistory.push({ role: "model", text: d.reply.replace(/<[^>]*>/g, '') });
+
                 document.getElementById(tId).innerHTML = `
-                    <div class="badge">🏛️ KẾT QUẢ PHÂN TÍCH TỪ SIÊU NÃO</div>
+                    <div class="badge">💡 KẾT QUẢ TƯ DUY & PHÂN TÍCH CHUYÊN GIA</div>
                     <div class="bot-text">${d.reply}</div>
                     <div class="msg-footer">
                         <button class="btn-msg" onclick="speak(this)">🔊 Nghe đọc</button>
@@ -295,9 +334,10 @@ HTML_PAGE = """<!DOCTYPE html>
                 window.scrollTo({top: document.body.scrollHeight, behavior:'smooth'});
                 fetch('/api/vault-count').then(r=>r.json()).then(dt=>document.getElementById('vaultBtn').innerText=`📥 Não (${dt.count})`).catch(()=>{});
             } catch(e) {
-                document.getElementById(tId).innerHTML = `<div class="bot-text">⚠️ Máy chủ đang bận xử lý, bồ bấm ENTER lại lần nữa nhé!</div>`;
+                document.getElementById(tId).innerHTML = `<div class="bot-text">⚠️ Máy chủ đang bận xử lý, bồ bấm ENTER lại nhé!</div>`;
             }
         }
+
         function speak(btn) {
             if (!window.speechSynthesis) return alert("Thiết bị chưa hỗ trợ phát âm thanh!");
             window.speechSynthesis.cancel();
@@ -308,6 +348,7 @@ HTML_PAGE = """<!DOCTYPE html>
             ut.rate = 0.95;
             window.speechSynthesis.speak(ut);
         }
+
         async function quickSave(btn) {
             const txt = btn.closest('.msg').querySelector('.bot-text').innerText;
             await fetch('/api/save-memory', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query:txt.substring(0,35), answer:txt})});
@@ -342,4 +383,31 @@ async def set_key_endpoint(req: Request):
     save_key_to_file(d.get("key", ""))
     return {"status": "success"}
 
-@app.post("/api
+@app.post("/api/chat")
+async def chat_endpoint(req: Request):
+    data = await req.json()
+    msg = data.get("message", "").strip()
+    image_data = data.get("image_data")
+    history = data.get("history", [])
+    api_key = data.get("api_key", "").strip()
+
+    # Nhớ tấm ảnh cũ để nếu người dùng hỏi tiếp các câu nối sau thì AI vẫn soi ảnh đó!
+    if image_data:
+        LAST_STATE["last_image"] = image_data
+    elif LAST_STATE["last_image"]:
+        image_data = LAST_STATE["last_image"]
+
+    ans = call_gemini_thinking(msg, image_data, history, api_key)
+
+    if ans == "CHƯA_CÓ_KEY":
+        ans = (
+            "⚠️ <b>CHƯA CÓ CHÌA KHÓA NÃO BỘ GOOGLE GEMINI!</b><br><br>"
+            "Bồ bấm vào nút màu cam <b>[🔑 Não]</b> ở góc trên màn hình, dán mã khóa <code>AIza...</code> vào để thức tỉnh siêu não nhen!<br>"
+            "Khi nút đổi sang màu xanh <b>[✅ CÓ NÃO]</b> thì tui mới có đủ năng lực tư duy sắc bén để phân tích chuyên sâu cho bồ được á!"
+        )
+    elif ans and ans.startswith("LỖI_GOOGLE:"):
+        ans = f"⚠️ <b>Google báo lỗi:</b> {ans.replace('LỖI_GOOGLE:', '')}. Bồ bấm vào [🔑 Não] kiểm tra lại mã khóa nhé!"
+
+    formatted = clean_text_for_display(ans)
+    save_to_vault(msg, formatted)
+    return {"reply": formatted}
