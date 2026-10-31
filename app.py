@@ -3,12 +3,9 @@ from fastapi.responses import HTMLResponse, Response
 import json
 import os
 import re
-import urllib.request
-import urllib.parse
-import urllib.error
 from datetime import datetime
 
-app = FastAPI(title="AI An Binh Fully Automated")
+app = FastAPI(title="AI An Binh Encyclopedia")
 
 VAULT_FILE = "ai_private_vault.json"
 LAST_STATE = {
@@ -47,46 +44,74 @@ def clean_text_for_display(text: str) -> str:
     text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)
     return text.replace('*', '')
 
-def smart_expert_analysis(msg: str):
-    """KHO TRÍ TUỆ CHUYÊN GIA THỰC CHIẾN - TỰ ĐỘNG NHẬN DIỆN THIẾT BỊ MÀ KHÔNG CẦN KEY"""
+def encyclopedia_expert_analysis(msg: str):
+    """BÁCH KHOA TOÀN THƯ ĐIỆN CÔNG NGHIỆP & TỰ ĐỘNG HÓA THỰC CHIẾN"""
     text = msg.lower()
     
-    if "contactor" in text or "khởi" in text or "relay" in text or "rơ" in text:
+    # 1. Biến tần & Cài đặt thông số Parameter
+    if "biến tần" in text or "vfd" in text or "inverter" in text or "tần số" in text or "parameter" in text or "cài" in text:
         return (
-            "⚡ <b>PHÂN TÍCH THIẾT BỊ CONTACTOR / RƠ-LE:</b><br><br>"
-            "• <b>1. Cấu tạo chính:</b><br>"
-            "  - <b>Cuộn hút (A1 - A2):</b> Cấp nguồn điều khiển (220V hoặc 24V tùy loại) để hút đóng mạch.<br>"
-            "  - <b>Mạch động lực (1L1-2T1, 3L2-4T2, 5L3-6T3):</b> Nối nguồn điện chính cấp qua tải (động cơ, điện trở).<br>"
-            "  - <b>Tiếp điểm phụ (NO / NC):</b> Dùng cho mạch duy trì (Self-hold) hoặc đèn báo trạng thái.<br><br>"
-            "• <b>2. Cách đấu nối cơ bản:</b><br>"
-            "  - Đưa nguồn lửa và nguội vào chân cuộn hút <b>A1</b> và <b>A2</b> qua nút nhấn ON/OFF.<br>"
-            "  - Đưa pha lửa qua tiếp điểm phụ duy trì để khi nhả nút nhấn ra contactor vẫn giữ nguyên trạng thái đóng."
+            "📖 <b>BÁCH KHOA TOÀN THƯ: HỆ THỐNG BIẾN TẦN (VFD) & CÀI ĐẶT THÔNG SỐ</b><br><br>"
+            "• <b>1. Đấu nối động lực cơ bản:</b><br>"
+            "  - <b>Nguồn vào:</b> Cọc <b>R - S - T</b> (Nếu dùng nguồn 1 pha cho biến tần vào 3 pha, cấp lửa vào R, nguội vào T và chọn dòng biến tần phù hợp).<br>"
+            "  - <b>Ngõ ra motor:</b> Cọc <b>U - V - W</b> nối trực tiếp xuống động cơ 3 pha. Nếu động cơ quay ngược, đảo 2 trong 3 dây bất kỳ.<br><br>"
+            "• <b>2. Nhóm thông số cài đặt (Parameter) cốt lõi:</b><br>"
+            "  - <b>Mã lệnh chạy (Source of Run Command):</b> Cài về 0 (chạy bằng bàn phím/RUN trên mặt máy) hoặc 1 (chạy bằng công tắc ngoài qua chân FWD/REV-COM).<br>"
+            "  - <b>Mã tần số nguồn (Frequency Source):</b> Cài về bàn phím (Up/Down), hoặc chiết áp ngoài (AI1: 0-10V / 4-20mA).<br>"
+            "  - <b>Tần số Max (Max Frequency):</b> Thường đặt 50Hz hoặc 60Hz tùy động cơ.<br>"
+            "  - <b>Thời gian tăng tốc (ACC - Acceleration Time):</b> Thường cài từ 5s đến 10s để tránh quá dòng.<br>"
+            "  - <b>Thời gian giảm tốc (DEC - Deceleration Time):</b> Thường cài từ 5s đến 10s để tránh lỗi quá áp (Overvoltage).<br><br>"
+            "• <b>3. Xử lý mã lỗi thường gặp:</b><br>"
+            "  - <i>OC (Overcurrent - Quá dòng):</i> Do kẹt cơ khí, tăng tốc quá nhanh hoặc motor chạm vỏ.<br>"
+            "  - <i>OV (Overvoltage - Quá áp):</i> Do giảm tốc quá nhanh, cần lắp điện trở xả hoặc tăng thời gian DEC.<br>"
+            "  - <i>OH (Overheat - Quá nhiệt):</i> Do quạt tản nhiệt hỏng hoặc tủ điện bí gió."
         )
-    elif "aptomat" in text or "cb" in text or "cp" in text or "át" in text:
+
+    # 2. Contactor & Rơ-le
+    elif "contactor" in text or "khởi" in text or "relay" in text or "rơ" in text or "nút nhấn" in text:
         return (
-            "⚡ <b>PHÂN TÍCH APTOMAT (CB / CP) BẢO VỆ ĐIỆN:</b><br><br>"
-            "• <b>1. Chức năng:</b> Bảo vệ ngắn mạch (chập điện) và quá tải cho toàn bộ hệ thống phía sau.<br><br>"
-            "• <b>2. Nguyên tắc đấu nối:</b><br>"
-            "  - <b>Đầu nguồn vào (Top):</b> Đấu dây nguồn chính (Lửa/Nguội đối với CB 1 pha; hoặc 3 pha R-S-T đối với CB 3 pha).<br>"
-            "  - <b>Đầu tải ra (Bottom):</b> Đấu đi thẳng tới Contactor hoặc thiết bị tiêu thụ.<br>"
-            "• <i>Lưu ý an toàn:</i> Khi thao tác lắp đặt phải ngắt nguồn tổng hoàn toàn để tránh nguy cơ điện giật."
+            "📖 <b>BÁCH KHOA TOÀN THƯ: CONTACTOR (KHỞI ĐỘNG TỪ) & MẠCH ĐIỀU KHIỂN</b><br><br>"
+            "• <b>1. Sơ đồ chân định danh:</b><br>"
+            "  - <b>Cuộn hút:</b> Hai chân <b>A1</b> và <b>A2</b> (Cấp điện áp 220V, 380V hoặc 24VDC tùy tem nhãn để đóng ngắt).<br>"
+            "  - <b>Mạch động lực:</b> 3 ngõ vào <b>1L1, 3L2, 5L3</b> và 3 ngõ ra <b>2T1, 4T2, 6T3</b>.<br>"
+            "  - <b>Tiếp điểm phụ:</b> Thường mở <b>NO (Normally Open - 13, 14)</b> và Thường đóng <b>NC (Normally Closed)</b> dùng cho mạch tự giữ (duy trì) và khóa liên động.<br><br>"
+            "• <b>2. Nguyên lý mạch duy trì (Khởi động động cơ qua nút nhấn):</b><br>"
+            "  - Nhấn nút <b>ON (NO)</b>: Dòng điện chạy qua cuộn hút A1-A2, contactor hút, tiếp điểm chính đóng điện cho motor, đồng thời tiếp điểm phụ NO song song với nút ON đóng lại để duy trì nguồn khi nhả tay ra.<br>"
+            "  - Nhấn nút <b>OFF (NC)</b>: Ngắt nguồn cuộn hút, contactor nhả ra, động cơ dừng."
         )
-    elif "biến tần" in text or "vfd" in text or "inverter" in text or "tần số" in text:
+
+    # 3. Aptomat & Bảo vệ điện
+    elif "aptomat" in text or "cb" in text or "cp" in text or "át" in text or "cầu chì" in text or "nhiệt" in text:
         return (
-            "⚡ <b>PHÂN TÍCH HỆ THỐNG BIẾN TẦN (VFD):</b><br><br>"
-            "• <b>1. Động lực:</b><br>"
-            "  - Nguồn vào cấp qua cọc <b>R, S, T</b>.<br>"
-            "  - Ngõ ra motor đấu vào <b>U, V, W</b>.<br><br>"
-            "• <b>2. Điều khiển:</b><br>"
-            "  - Lệnh chạy: Nối chân chung <b>COM</b> qua công tắc sang <b>FWD</b> (chạy thuận).<br>"
-            "  - Chỉnh tốc độ: Dùng biến trở đấu vào chân <b>10V - AI1 - GND</b>."
+            "📖 <b>BÁCH KHOA TOÀN THƯ: THIẾT BỊ BẢO VỆ (APTOMAT / CB / RCCB)</b><br><br>"
+            "• <b>1. Phân loại & Chức năng:</b><br>"
+            "  - <b>MCB (Miniature Circuit Breaker):</b> Aptomat tép dân dụng và công nghiệp nhẹ, bảo vệ quá tải và ngắn mạch.<br>"
+            "  - <b>MCCB (Moulded Case Circuit Breaker):</b> Aptomat khối công suất lớn, chỉnh dòng định mức linh hoạt.<br>"
+            "  - <b>ELCB / RCCB:</b> Aptomat chống dòng rò, bảo vệ giật điện.<br><br>"
+            "• <b>2. Kinh nghiệm chọn dòng điện định mức (Ampe):</b><br>"
+            "  - Dòng điện của Aptomat thường được chọn bằng khoảng <b>1.2 đến 1.5 lần dòng điện định mức (I_dm)</b> của thiết bị tiêu thụ để tránh nhảy át giả khi khởi động mà vẫn bảo vệ an toàn."
         )
+
+    # 4. PLC & HMI & Cảm biến
+    elif "plc" in text or "hmi" in text or "cảm biến" in text or "sensor" in text or "npn" in text or "pnp" in text:
+        return (
+            "📖 <b>BÁCH KHOA TOÀN THƯ: PLC, HMI & CẢM BIẾN CÔNG NGHIỆP</b><br><br>"
+            "• <b>1. Phân biệt cảm biến NPN và PNP:</b><br>"
+            "  - <b>NPN (Sink - Ngõ ra âm):</b> Khi có tín hiệu, ngõ ra nối chung với chân 0V (GND). Dùng chung với PLC ngõ vào dạng Common là 24V.<br>"
+            "  - <b>PNP (Source - Ngõ ra dương):</b> Khi có tín hiệu, ngõ ra xuất điện áp 24V. Dùng chung với PLC ngõ vào dạng Common là 0V.<br><br>"
+            "• <b>2. PLC (Programmable Logic Controller):</b> Là bộ điều khiển lập trình trung tâm, nhận tín hiệu từ nút nhấn, cảm biến (Inputs) và điều khiển cuộn hút, đèn báo, biến tần (Outputs) theo thuật toán lập trình sẵn."
+        )
+
+    # Mặc định: Tổng hợp bách khoa toàn thư
     else:
         return (
-            "⚡ <b>PHÂN TÍCH KỸ THUẬT ĐIỆN CÔNG NGHIỆP:</b><br><br>"
-            "Dựa trên yêu cầu của bồ, tui nhận thấy đây là thiết bị đóng cắt hoặc điều khiển trong tủ điện.<br><br>"
-            "• <b>Kiểm tra thực tế:</b> Bồ hãy nhìn kỹ nhãn thông số in trên thân thiết bị (điện áp định mức, dòng điện Ampe) để lựa chọn dây dẫn và thiết bị bảo vệ phù hợp.<br>"
-            "• <b>Hỗ trợ thêm:</b> Bồ có thể gõ rõ tên thiết bị cụ thể (ví dụ: <i>'đấu dây contactor thế nào'</i>, <i>'chọn CB mấy b</i>e<i>o'</i>) để tui hướng dẫn chi tiết từng bước nhé!"
+            "📖 <b>BÁCH KHOA TOÀN THƯ ĐIỆN CÔNG NGHIỆP & TỰ ĐỘNG HÓA</b><br><br>"
+            "Tui đã nạp đầy đủ toàn bộ kho tàng kiến thức thực chiến vào hệ thống. Bồ có thể tra cứu bất kỳ chủ đề nào bằng cách gõ trực tiếp:<br><br>"
+            "• <b>Biến tần & Parameter:</b> Cách cài đặt, đấu nối, mã lỗi OC, OV.<br>"
+            "• <b>Contactor & Mạch điện:</b> Sơ đồ chân A1-A2, mạch tự giữ, khóa chéo.<br>"
+            "• <b>Aptomat & Bảo vệ:</b> Cách chọn dòng CB, phân biệt MCB, MCCB.<br>"
+            "• <b>Cảm biến & PLC:</b> Phân biệt NPN / PNP, đấu nối ngõ vào ra.<br><br>"
+            "<i>Bồ muốn tra cứu chi tiết phần nào, cứ gõ tên thiết bị hoặc câu hỏi cụ thể, tui trả lời ngay lập tức!</i>"
         )
 
 HTML_PAGE = """<!DOCTYPE html>
@@ -94,15 +119,15 @@ HTML_PAGE = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI AN BÌNH</title>
+    <title>AI AN BÌNH - BÁCH KHOA</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background: #050811; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; background-size: cover; background-position: center; padding-bottom: 85px; }
         .overlay { position: fixed; inset: 0; background: rgba(5,8,17,0.88); backdrop-filter: blur(8px); z-index: 1; }
         .app { position: relative; z-index: 2; max-width: 650px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; flex: 1; }
         .header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(15,23,42,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .header h1 { font-size: 18px; color: #ffffff; font-weight: 800; letter-spacing: 0.5px; }
-        .header p { font-size: 10.5px; color: #94a3b8; }
+        .header h1 { font-size: 17px; color: #ffffff; font-weight: 800; letter-spacing: 0.5px; }
+        .header p { font-size: 10px; color: #38bdf8; font-weight: bold; }
         .btn-tool { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #e2e8f0; padding: 5px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; }
         .btn-key-on { background: #10b981 !important; color: #fff !important; font-weight: bold; border: none !important; }
         .chat-stream { flex: 1; padding: 14px 12px; display: flex; flex-direction: column; gap: 12px; }
@@ -130,18 +155,18 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="header">
             <div>
                 <h1>AI AN BÌNH</h1>
-                <p>Hệ Thống Độc Lập • Sẵn Sàng 100%</p>
+                <p>📖 Bách Khoa Toàn Thư Điện Công Nghiệp</p>
             </div>
             <div style="display:flex; gap:5px;">
                 <button class="btn-tool" id="vaultBtn" onclick="window.open('/api/export-brain')">📥 Não (0)</button>
                 <button class="btn-tool" onclick="document.getElementById('bgInp').click()">🖼️ Nền</button>
-                <button class="btn-tool btn-key-on">✅ SẴN SÀNG</button>
+                <button class="btn-tool btn-key-on">⚡ VIP</button>
             </div>
         </div>
         <div class="chat-stream" id="stream">
             <div class="msg bot">
-                <div class="badge">🧠 HỆ THỐNG HOẠT ĐỘNG HOÀN HẢO</div>
-                <div class="bot-text">Chào bồ! Tui là <b>AI An Bình</b>.<br><br>Hệ thống đã hoạt động độc lập hoàn hảo, không cần mã khóa API nữa. Bồ cứ gõ hỏi Contactor, CB, Biến tần hay đấu dây thoải mái, tui đáp ứng ngay lập tức cho bồ nhen!</div>
+                <div class="badge">📖 BÁCH KHOA TOÀN THƯ ĐÃ SẴN SÀNG</div>
+                <div class="bot-text">Chào bồ! Tui là <b>AI An Bình</b> phiên bản Bách Khoa Toàn Thư.<br><br>Hệ thống đã nạp trọn bộ kiến thức về Biến tần, Contactor, Aptomat, PLC và cảm biến. Bồ muốn tra cứu bất kỳ thông số hay cách đấu nối nào, cứ gõ vào đây nhé!</div>
                 <div class="msg-footer">
                     <button class="btn-msg" onclick="speak(this)">🔊 Nghe đọc</button>
                     <button class="btn-msg" style="border-color:#a855f7; color:#d8b4fe;" onclick="quickSave(this)">💾 Lưu Não</button>
@@ -156,7 +181,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <form class="bar-inner" onsubmit="event.preventDefault(); sendMsg();">
             <label for="fileInp" class="btn-plus">+</label>
             <input type="file" id="fileInp" accept="image/*" style="display:none;" onchange="onFile(event)">
-            <input type="text" id="chatInp" class="chat-input" placeholder="Hỏi contactor, CP, đấu dây..." autocomplete="off">
+            <input type="text" id="chatInp" class="chat-input" placeholder="Hỏi biến tần, contactor, NPN/PNP..." autocomplete="off">
             <button type="submit" class="btn-enter">ENTER ↵</button>
         </form>
     </div>
@@ -195,7 +220,7 @@ HTML_PAGE = """<!DOCTYPE html>
         async function sendMsg() {
             const inp = document.getElementById('chatInp');
             const txt = inp.value.trim();
-            if (!txt && !curImg) return alert("Bồ hãy nhập câu hỏi nhé!");
+            if (!txt && !curImg) return alert("Bồ hãy nhập nội dung cần tra cứu nhé!");
 
             const st = document.getElementById('stream');
             let uHtml = `<div class="msg user">`;
@@ -210,7 +235,7 @@ HTML_PAGE = """<!DOCTYPE html>
             inp.value = '';
 
             const tId = 'bot_' + Date.now();
-            st.innerHTML += `<div class="msg bot" id="${tId}"><div class="badge">🧠 ĐANG TRA CỨU KHO KỸ THUẬT...</div><div class="bot-text">Đang tổng hợp thông tin chuyên gia...</div></div>`;
+            st.innerHTML += `<div class="msg bot" id="${tId}"><div class="badge">📖 ĐANG TRA CỨU BÁCH KHOA TOÀN THƯ...</div><div class="bot-text">Đang trích xuất tri thức chuyên ngành...</div></div>`;
             window.scrollTo({top: document.body.scrollHeight, behavior:'smooth'});
 
             try {
@@ -222,7 +247,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 const d = await res.json();
                 
                 document.getElementById(tId).innerHTML = `
-                    <div class="badge">💡 KẾT QUẢ PHÂN TÍCH CHUYÊN GIA</div>
+                    <div class="badge">💡 KẾT QUẢ TRA CỨU CHUYÊN SÂU</div>
                     <div class="bot-text">${d.reply}</div>
                     <div class="msg-footer">
                         <button class="btn-msg" onclick="speak(this)">🔊 Nghe đọc</button>
@@ -266,7 +291,7 @@ async def vault_count():
 
 @app.get("/api/export-brain")
 async def export_brain():
-    return Response(content=json.dumps(get_vault(), ensure_ascii=False, indent=2), media_type="application/json", headers={"Content-Disposition": "attachment; filename=AI_AnBinh_Brain.json"})
+    return Response(content=json.dumps(get_vault(), ensure_ascii=False, indent=2), media_type="application/json", headers={"Content-Disposition": "attachment; filename=AI_AnBinh_Encyclopedia.json"})
 
 @app.post("/api/save-memory")
 async def save_memory_endpoint(req: Request):
@@ -278,7 +303,7 @@ async def save_memory_endpoint(req: Request):
 async def chat_endpoint(req: Request):
     data = await req.json()
     msg = data.get("message", "").strip()
-    ans = smart_expert_analysis(msg)
+    ans = encyclopedia_expert_analysis(msg)
     formatted = clean_text_for_display(ans)
     save_to_vault(msg, formatted)
     return {"reply": formatted}
