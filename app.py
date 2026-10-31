@@ -8,7 +8,7 @@ import urllib.parse
 import urllib.error
 from datetime import datetime
 
-app = FastAPI(title="AI An Binh Multi-Brain Pro Max")
+app = FastAPI(title="AI An Binh Master Final")
 
 CONFIG_FILE = "ai_config.json"
 VAULT_FILE = "ai_private_vault.json"
@@ -67,25 +67,26 @@ def clean_text_for_display(text: str) -> str:
     text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)
     return text.replace('*', '')
 
-MASTER_THINKING_PROMPT = (
-    "Bạn là TRÍ TUỆ NHÂN TẠO AI AN BÌNH - Kỹ sư trưởng thực chiến chuyên sâu về Tự Động Hóa, Cơ Điện Tử, Biến Tần VFD, PLC, Màn hình HMI và Mạch Điện Công Nghiệp. "
+EXPERT_SYSTEM_PROMPT = (
+    "Bạn là TRÍ TUỆ NHÂN TẠO AI AN BÌNH - Kỹ sư trưởng thực chiến chuyên sâu về Điện Công Nghiệp, Tự Động Hóa, Contactor (Khởi động từ), Aptomat (CB), Rơ-le, Biến Tần và PLC. "
     "Xưng hô 'tui' hoặc 'mình' và gọi người dùng là 'bồ'. "
-    "QUY TẮC CỐT LÕI: "
-    "1. Xâu chuỗi lịch sử hội thoại, hiểu rõ ý đồ thực tế của người dùng. "
-    "2. Khi có ảnh (tem nhãn, bo mạch, dây điện), soi kỹ từng chữ, hãng sản xuất (Delta, LS, INVT, Mitsubishi...), công suất và bản chất kỹ thuật. "
-    "3. Hướng dẫn đấu nối chi tiết (cọc nguồn R-S-T, ngõ ra U-V-W, lệnh chạy FWD/REV/COM, biến trở 10V-AI1-GND). "
-    "4. Trả lời trực quan, gãy gọn, thực tế, KHÔNG dùng dấu sao (**) để loa đọc mượt mà."
+    "QUY TẮC BẮT BUỘC: "
+    "1. Phân tích chính xác thiết bị mà người dùng đang hỏi hoặc gửi ảnh (Contactor là contactor, Aptomat là aptomat, Biến tần là biến tần, v.v.). Tuyệt đối không nhầm lẫn hay rập khuôn. "
+    "2. Nếu có hình ảnh, hãy soi thật kỹ tem nhãn, thông số định mức (Ampe, Volt), ký hiệu chân (A1-A2, 1L1-2T1, NO, NC...). "
+    "3. Hướng dẫn đấu nối thực tế, ngắn gọn, dễ hiểu, an toàn. "
+    "4. Văn phong gãy gọn, tự nhiên, KHÔNG dùng dấu sao (**) để hệ thống đọc âm thanh mượt mà."
 )
 
-def call_multi_brain_gemini(prompt: str, base64_image: str, history_list: list, api_key: str = None):
+def call_google_gemini_api(prompt: str, base64_image: str, history_list: list, api_key: str = None):
     key = api_key if (api_key and api_key.startswith("AIza")) else get_saved_key()
     if not key or not key.startswith("AIza"):
-        return None
+        return "⚠️ **Chưa có mã khóa API (Key)!** Bồ bấm vào nút màu cam [🔑 Não] ở góc trên bên phải màn hình, dán mã khóa `AIza...` của bồ vào là xong nhen."
 
     clean_b64 = None
     if base64_image:
         clean_b64 = re.sub(r'^data:image\/[a-zA-Z]+;base64,', '', base64_image)
 
+    # Xây dựng lịch sử trò chuyện
     contents = []
     if history_list and len(history_list) > 0:
         for h in history_list[-4:]:
@@ -95,31 +96,29 @@ def call_multi_brain_gemini(prompt: str, base64_image: str, history_list: list, 
                 "parts": [{"text": h.get("text", "")}]
             })
 
+    # Lượt hiện tại
     current_parts = []
     if clean_b64:
         current_parts.append({"inlineData": {"mimeType": "image/jpeg", "data": clean_b64}})
 
-    current_prompt_text = (
-        f"[CHỈ DẪN CHUYÊN GIA]: {MASTER_THINKING_PROMPT}\n\n"
-        f"[YÊU CẦU CỦA BỒ]: {prompt if prompt else 'Hãy soi thật kỹ bức ảnh này và phân tích chi tiết bản chất, thông số và cách đấu nối.'}"
+    full_message = (
+        f"[CHỈ DẪN NGHIỆP VỤ]: {EXPERT_SYSTEM_PROMPT}\n\n"
+        f"[CÂU HỎI CỦA BỒ]: {prompt if prompt else 'Hãy soi kỹ thiết bị trong ảnh và phân tích chi tiết bản chất, thông số và cách đấu nối.'}"
     )
-    current_parts.append({"text": current_prompt_text})
+    current_parts.append({"text": full_message})
     contents.append({"role": "user", "parts": current_parts})
 
-    brain_models = [
-        "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-2.5-pro"
-    ]
+    # Danh sách các model chính thức của Google
+    models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    last_error = ""
 
-    for model_name in brain_models:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
+    for m in models_to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}"
         payload = {
             "contents": contents,
             "generationConfig": {
                 "temperature": 0.3,
-                "maxOutputTokens": 2500
+                "maxOutputTokens": 2000
             }
         }
         try:
@@ -129,37 +128,28 @@ def call_multi_brain_gemini(prompt: str, base64_image: str, history_list: list, 
                 headers={"Content-Type": "application/json"}, 
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=12) as res:
+            with urllib.request.urlopen(req, timeout=15) as res:
                 data = json.loads(res.read().decode("utf-8"))
                 candidates = data.get("candidates", [])
                 if candidates:
                     txt = candidates[0].get("content", {}).get("parts", [{}])[0].get("text")
                     if txt:
-                        return f"🧠 [Đã kích hoạt não: {model_name}]<br><br>" + txt.strip()
-        except Exception:
+                        return txt.strip()
+        except urllib.error.HTTPError as e:
+            last_error = f"HTTP {e.code}"
+            continue
+        except Exception as e:
+            last_error = str(e)
             continue
 
-    return None
-
-def fallback_expert_analysis(msg: str):
-    return (
-        "⚡ <b>PHÂN TÍCH KỸ THUẬT TỰ ĐỘNG (KHO TRÍ THUỆ DỰ PHÒNG):</b><br><br>"
-        "Dựa trên yêu cầu của bồ, tui phân tích cụ thể hệ thống như sau:<br><br>"
-        "• <b>1. Phân loại thiết bị:</b> Đây là thiết bị biến tần điều khiển động cơ 3 pha (Inverter/VFD) chuyên dụng trong công nghiệp.<br><br>"
-        "• <b>2. Hệ thống động lực:</b><br>"
-        "  - <b>Nguồn vào (R, S, T):</b> Cấp nguồn qua Aptomat bảo vệ (nguồn 1 pha đấu R-T, nguồn 3 pha đấu đủ R-S-T).<br>"
-        "  - <b>Ngõ ra (U, V, W):</b> Nối trực tiếp vào 3 đầu dây của motor 3 pha. Nếu động cơ quay ngược chiều, đảo vị trí 2 dây bất kỳ cho nhau.<br><br>"
-        "• <b>3. Tín hiệu điều khiển:</b><br>"
-        "  - <b>Lệnh chạy:</b> Nối chân chung `COM` qua công tắc sang `FWD` (chạy thuận) hoặc `REV` (chạy nghịch).<br>"
-        "  - <b>Điều chỉnh tốc độ:</b> Dùng biến trở đấu vào chân `10V`, chân giữa vào `AI1`, chân âm vào `GND` để chỉnh tần số mượt mà từ 0 đến 50Hz."
-    )
+    return f"⚠️ **Lỗi kết nối Google API ({last_error}):** Không thể gọi được vào siêu não. Bồ hãy kiểm tra lại mã khóa API (Key) xem đã đúng chưa nhé!"
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI AN BÌNH - ĐA NÃO</title>
+    <title>AI AN BÌNH - MASTER</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background: #050811; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; background-size: cover; background-position: center; padding-bottom: 85px; }
@@ -195,8 +185,8 @@ HTML_PAGE = """<!DOCTYPE html>
     <div class="app">
         <div class="header">
             <div>
-                <h1>AI AN BÌNH (ĐA NÃO)</h1>
-                <p>Hệ Thống Đa Tầng • Chuyên Gia Tự Động Hóa</p>
+                <h1>AI AN BÌNH</h1>
+                <p>Chuyên Gia Điện Công Nghiệp & Tự Động Hóa</p>
             </div>
             <div style="display:flex; gap:5px;">
                 <button class="btn-tool" id="vaultBtn" onclick="window.open('/api/export-brain')">📥 Não (0)</button>
@@ -206,8 +196,8 @@ HTML_PAGE = """<!DOCTYPE html>
         </div>
         <div class="chat-stream" id="stream">
             <div class="msg bot">
-                <div class="badge">🧠 HỆ THỐNG ĐA NÃO ĐÃ KÍCH HOẠT</div>
-                <div class="bot-text">Chào bồ! Tui là <b>AI An Bình</b> phiên bản Đa Não.<br><br>Hệ thống dự phòng tự động đã sẵn sàng. Bồ gửi ảnh hoặc gõ câu hỏi, tui sẽ huy động các tầng siêu não để phân tích chi tiết cho bồ nhen!</div>
+                <div class="badge">🧠 HỆ THỐNG MASTER ĐÃ SẴN SÀNG</div>
+                <div class="bot-text">Chào bồ! Tui là <b>AI An Bình</b>.<br><br>Hệ thống đã chuẩn hóa toàn diện. Bồ gửi ảnh Contactor, CB, Biến tần hay hỏi bất kỳ thiết bị nào, tui sẽ phân tích chuẩn xác đúng 100% thiết bị đó cho bồ nhen!</div>
                 <div class="msg-footer">
                     <button class="btn-msg" onclick="speak(this)">🔊 Nghe đọc</button>
                     <button class="btn-msg" style="border-color:#a855f7; color:#d8b4fe;" onclick="quickSave(this)">💾 Lưu Não</button>
@@ -222,7 +212,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <form class="bar-inner" onsubmit="event.preventDefault(); sendMsg();">
             <label for="fileInp" class="btn-plus">+</label>
             <input type="file" id="fileInp" accept="image/*" style="display:none;" onchange="onFile(event)">
-            <input type="text" id="chatInp" class="chat-input" placeholder="Hỏi biến tần gì, đấu dây, soi tem..." autocomplete="off">
+            <input type="text" id="chatInp" class="chat-input" placeholder="Hỏi contactor, CP, đấu dây, soi tem..." autocomplete="off">
             <button type="submit" class="btn-enter">ENTER ↵</button>
         </form>
     </div>
@@ -270,7 +260,7 @@ HTML_PAGE = """<!DOCTYPE html>
             document.getElementById('keyBtn').innerText = '✅ CÓ NÃO';
             document.getElementById('keyBtn').className = 'btn-tool btn-key-on';
             fetch('/api/set-key', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key:clean})});
-            alert("🎉 ĐÃ KÍCH HOẠT ĐA NÃO THÀNH CÔNG!");
+            alert("🎉 ĐÃ KÍCH HOẠT MÃ KHÓA THÀNH CÔNG!");
         }
 
         function onBg(e) {
@@ -327,7 +317,7 @@ HTML_PAGE = """<!DOCTYPE html>
             if (txt) convHistory.push({ role: "user", text: txt });
 
             const tId = 'bot_' + Date.now();
-            st.innerHTML += `<div class="msg bot" id="${tId}"><div class="badge">🧠 ĐANG KÍCH HOẠT HỆ THỐNG ĐA NÃO...</div><div class="bot-text">Đang chuyển mạch qua các tầng siêu não kỹ thuật...</div></div>`;
+            st.innerHTML += `<div class="msg bot" id="${tId}"><div class="badge">🧠 ĐANG PHÂN TÍCH CHUYÊN SÂU...</div><div class="bot-text">Đang kết nối siêu não Google...</div></div>`;
             window.scrollTo({top: document.body.scrollHeight, behavior:'smooth'});
 
             try {
@@ -346,7 +336,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 convHistory.push({ role: "model", text: d.reply.replace(/<[^>]*>/g, '') });
 
                 document.getElementById(tId).innerHTML = `
-                    <div class="badge">💡 KẾT QUẢ PHÂN TÍCH ĐA NÃO</div>
+                    <div class="badge">💡 KẾT QUẢ PHÂN TÍCH CHUYÊN GIA</div>
                     <div class="bot-text">${d.reply}</div>
                     <div class="msg-footer">
                         <button class="btn-msg" onclick="speak(this)">🔊 Nghe đọc</button>
@@ -355,12 +345,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 window.scrollTo({top: document.body.scrollHeight, behavior:'smooth'});
                 fetch('/api/vault-count').then(r=>r.json()).then(dt=>document.getElementById('vaultBtn').innerText=`📥 Não (${dt.count})`).catch(()=>{});
             } catch(e) {
-                document.getElementById(tId).innerHTML = `
-                    <div class="badge">💡 PHÂN TÍCH KỸ THUẬT DỰ PHÒNG</div>
-                    <div class="bot-text">⚡ <b>PHÂN TÍCH THIẾT BỊ:</b> Đây là Biến tần điều khiển động cơ 3 pha (VFD).<br><br>• <b>Nguồn cấp vào:</b> Cọc R, S, T qua Aptomat bảo vệ.<br>• <b>Ngõ ra motor:</b> Cọc U, V, W nối thẳng vào 3 đầu dây motor 3 pha.<br>• <b>Điều khiển lệnh chạy:</b> Chân COM qua công tắc sang chân FWD để chạy thuận.<br>• <b>Chỉnh tốc độ:</b> Chân 10V - AI1 - GND nối với chiết áp ngoài.</div>
-                    <div class="msg-footer">
-                        <button class="btn-msg" onclick="speak(this)">🔊 Nghe đọc</button>
-                    </div>`;
+                document.getElementById(tId).innerHTML = `<div class="bot-text">⚠️ Mất kết nối máy chủ, bồ bấm ENTER gửi lại nhé!</div>`;
             }
         }
 
@@ -427,11 +412,7 @@ async def chat_endpoint(req: Request):
     elif LAST_STATE["last_image"]:
         image_data = LAST_STATE["last_image"]
 
-    ans = call_multi_brain_gemini(msg, image_data, history, api_key)
-
-    if not ans:
-        ans = fallback_expert_analysis(msg)
-
+    ans = call_google_gemini_api(msg, image_data, history, api_key)
     formatted = clean_text_for_display(ans)
     save_to_vault(msg, formatted)
     return {"reply": formatted}
