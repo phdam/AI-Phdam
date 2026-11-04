@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#10101c">
+<title>AI Phdam Music</title>
+
+<style>
+:root {
+  --bg:#10101c;
+  --panel:#19192a;
+  --panel2:#222239;
+  --text:#f5f5ff;
+  --muted:#a4a4bd;
+  --purple:#a855f7;
+  --blue:#4f8cff;
+  --pink:#f04fa8;
+  --green:#37d6a0;
+  --border:#34344e;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:linear-gradient(150deg,#11101f,#10182a 65%,#171024);
+  color:var(--text);
+  font-family:Arial,Helvetica,sans-serif;
+}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer}
+header{
+  padding:20px 16px 15px;
+  background:#151526;
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:10;
+}
+.brand{
+  display:flex;align-items:center;gap:12px;
+}
+.logo{
+  width:46px;height:46px;border-radius:15px;
+  background:linear-gradient(135deg,var(--purple),var(--pink));
+  display:grid;place-items:center;font-size:24px;
+  box-shadow:0 5px 25px #a855f755;
+}
+.brand h1{font-size:20px;margin:0}
+.brand p{font-size:12px;color:var(--muted);margin:5px 0 0}
+.container{max-width:850px;margin:auto;padding:16px}
+.hero{
+  padding:22px 18px;border-radius:22px;
+  background:linear-gradient(120deg,#47217b,#202e63 65%,#30204e);
+  margin:5px 0 20px;
+}
+.hero h2{font-size:24px;margin:0 0 8px}
+.hero p{color:#e2dafa;font-size:13px;line-height:1.6;margin:0}
+.badge{
+  display:inline-block;padding:6px 10px;
+  border-radius:20px;background:#ffffff20;
+  font-size:11px;margin-bottom:12px;
+}
+.tabs{
+  display:flex;gap:8px;overflow-x:auto;
+  margin-bottom:18px;padding-bottom:5px;
+}
+.tab{
+  white-space:nowrap;border:1px solid var(--border);
+  background:var(--panel);color:var(--muted);
+  padding:11px 15px;border-radius:12px;
+}
+.tab.active{
+  background:linear-gradient(120deg,#7135bb,#3c55a5);
+  color:white;border-color:transparent;
+}
+.section{display:none}
+.section.active{display:block}
+.card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:18px;padding:17px;margin-bottom:15px;
+}
+.card h3{margin:0 0 14px;font-size:17px}
+label{
+  display:block;font-size:13px;color:#d4d4e8;
+  margin:13px 0 7px;
+}
+input,textarea,select{
+  width:100%;padding:13px;
+  border-radius:11px;border:1px solid var(--border);
+  color:white;background:#111120;outline:none;
+}
+textarea{resize:vertical;min-height:120px;line-height:1.5}
+input:focus,textarea:focus,select:focus{
+  border-color:var(--purple);
+}
+select option{background:#19192a}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn{
+  border:0;border-radius:12px;padding:14px 17px;
+  color:white;font-weight:bold;
+  background:linear-gradient(110deg,var(--purple),var(--blue));
+}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.secondary{
+  background:var(--panel2);border:1px solid var(--border);
+}
+.btn.green{background:linear-gradient(110deg,#159c78,#26b7b1)}
+.btn.full{width:100%;margin-top:15px}
+.small{font-size:12px;color:var(--muted);line-height:1.5}
+.styles{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:10px;
+}
+.style{
+  text-align:left;padding:14px;border-radius:14px;
+  background:#202036;color:white;
+  border:1px solid var(--border);
+}
+.style.selected{
+  border:1px solid #c084fc;
+  background:linear-gradient(130deg,#46236c,#26335e);
+}
+.style .emoji{font-size:24px;display:block;margin-bottom:8px}
+.style b{font-size:13px}
+.style small{display:block;color:var(--muted);margin-top:5px}
+.status{
+  margin-top:14px;padding:12px;border-radius:10px;
+  background:#101020;color:#c9c9df;font-size:13px;
+  line-height:1.5;white-space:pre-wrap;
+}
+.status.error{color:#ff8d9d}
+.status.ok{color:#68e7ba}
+.audio-box{
+  padding:14px;border-radius:14px;
+  background:#101020;margin-top:13px;
+}
+audio{width:100%;margin-top:10px}
+.song{
+  background:#202036;padding:14px;border-radius:13px;
+  margin:10px 0;
+}
+.song a{color:#bda0ff;overflow-wrap:anywhere}
+.footer{
+  text-align:center;padding:25px 10px 35px;
+  color:var(--muted);font-size:12px;
+}
+.hidden{display:none!important}
+@media(max-width:500px){
+  .container{padding:12px}
+  .row{grid-template-columns:1fr}
+  .hero h2{font-size:21px}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">♫</div>
+    <div>
+      <h1>AI Phdam Music</h1>
+      <p>Phòng thu sáng tác nhạc bằng trí tuệ nhân tạo</p>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <div class="hero">
+    <span class="badge">AI MUSIC STUDIO</span>
+    <h2>Biến ý tưởng thành âm nhạc</h2>
+    <p>Sáng tác lời, chọn phong cách, phối khí và tạo bài hát bằng AI. Lưu lại những bản nhạc bạn yêu thích.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="compose">🎼 Sáng tác</button>
+    <button class="tab" data-tab="library">🎧 Phong cách</button>
+    <button class="tab" data-tab="studio">🎚️ Phối nhạc</button>
+    <button class="tab" data-tab="mySongs">🎵 Bài của tôi</button>
+  </div>
+
+  <!-- SÁNG TÁC -->
+  <section class="section active" id="compose">
+    <div class="card">
+      <h3>✨ Ý tưởng bài hát</h3>
+
+      <label>Nội dung hoặc câu chuyện muốn viết</label>
+      <textarea id="idea" placeholder="Ví dụ: Câu chuyện tình yêu của hai người công nhân xa quê, cuộc sống giản dị và những kỷ niệm đẹp..."></textarea>
+
+      <div class="row">
+        <div>
+          <label>Thể loại nhạc</label>
+          <select id="genre">
+            <option>Modern Bolero Remix</option>
+            <option>Bolero truyền thống</option>
+            <option>Pop Ballad</option>
+            <option>Modern Pop</option>
+            <option>EDM / Vinahouse</option>
+            <option>Deep House</option>
+            <option>R&B</option>
+            <option>Acoustic Pop</option>
+            <option>Pop Rock</option>
+            <option>Disco Remix</option>
+            <option>Dân ca hiện đại</option>
+            <option>Vọng cổ kết hợp Pop</option>
+            <option>Lofi Chill</option>
+          </select>
+        </div>
+        <div>
+          <label>Giọng hát</label>
+          <select id="voice">
+            <option>Nam cao</option>
+            <option>Nam trung</option>
+            <option>Nam trầm</option>
+            <option>Nữ cao</option>
+            <option>Nữ trung</option>
+            <option>Nữ trầm</option>
+            <option>Song ca nam nữ</option>
+          </select>
+        </div>
+      </div>
+
+      <label>Cảm xúc bài hát</label>
+      <select id="mood">
+        <option>Hài hòa, hiện đại</option>
+        <option>Vui tươi, trẻ trung</option>
+        <option>Nhẹ nhàng, lãng mạn</option>
+        <option>Buồn nhẹ, sâu lắng</option>
+        <option>Mạnh mẽ, sôi động</option>
+        <option>Hoài niệm, gần gũi</option>
+      </select>
+
+      <button class="btn full" id="writeBtn" onclick="writeLyrics()">
+        ✨ AI SÁNG TÁC LỜI
+      </button>
+      <div class="small" style="margin-top:9px">
+        Cần kết nối Gemini API trên máy chủ để sử dụng chức năng này.
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📝 Lời bài hát</h3>
+      <label>Tên và nội dung bài hát</label>
+      <textarea id="lyrics" placeholder="Nhập lời bài hát có sẵn hoặc chờ AI sáng tác..."></textarea>
+      <button class="btn secondary full" onclick="copyLyrics()">📋 Sao chép lời bài hát</button>
+    </div>
+  </section>
+
+  <!-- THƯ VIỆN PHONG CÁCH -->
+  <section class="section" id="library">
+    <div class="card">
+      <h3>🎧 Thư viện phong cách âm nhạc</h3>
+      <p class="small">Chọn một phong cách để áp dụng cho bài hát. Đây là các cấu hình tham khảo, chưa phải bản thu âm nghe thử.</p>
+      <div class="styles" id="styleList"></div>
+    </div>
+  </section>
+
+  <!-- PHỐI NHẠC -->
+  <section class="section" id="studio">
+    <div class="card">
+      <h3>🎚️ Phòng phối khí</h3>
+
+      <label>Nhạc cụ</label>
+      <select id="instruments">
+        <option>Guitar, piano, bass, electronic drums</option>
+        <option>Guitar điện, bass mạnh, trống remix, synth</option>
+        <option>Piano, violin, string orchestra</option>
+        <option>Đàn tranh, sáo trúc, guitar</option>
+        <option>Organ, guitar phím lõm, bass</option>
+        <option>Electronic drums, synth, deep bass</option>
+        <option>Acoustic guitar, piano, cajon</option>
+      </select>
+
+      <div class="row">
+        <div>
+          <label>Tốc độ BPM</label>
+          <input id="bpm" type="number" min="30" max="300" value="90">
+        </div>
+        <div>
+          <label>Thời lượng (giây)</label>
+          <input id="duration" type="number" min="10" max="600" value="120">
+        </div>
+      </div>
+
+      <label>Định dạng âm thanh</label>
+      <select id="format">
+        <option value="mp3">MP3</option>
+        <option value="wav">WAV</option>
+      </select>
+
+      <label>
+        <input id="noBacking" type="checkbox" checked style="width:auto">
+        Không hát bè
+      </label>
+
+      <button class="btn full" id="generateBtn" onclick="generateMusic()">
+        🎵 TẠO BÀI HÁT
+      </button>
+
+      <div id="generationStatus" class="status">
+        Sẵn sàng. Hãy nhập lời bài hát rồi tạo nhạc.
+      </div>
+
+      <div id="audioResult" class="audio-box hidden">
+        <b>🎶 Kết quả âm thanh</b>
+        <audio id="audioPlayer" controls></audio>
+        <a id="downloadAudio" class="btn green full" style="display:block;text-align:center;text-decoration:none" download>
+          ⬇ TẢI BÀI HÁT
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- BÀI HÁT CỦA TÔI -->
+  <section class="section" id="mySongs">
+    <div class="card">
+      <h3>🎵 Bài hát của tôi</h3>
+      <p class="small">Các bài hát đã tạo và lưu trên trình duyệt này.</p>
+      <div id="songList"></div>
+      <button class="btn secondary full" onclick="exportSongs()">Xuất danh sách bài hát (JSON)</button>
+      <button class="btn secondary full" onclick="clearSongs()">Xóa danh sách đã lưu</button>
+    </div>
+  </section>
+
+  <div class="footer">
+    AI Phdam Music · Phòng thu âm AI hiện đại<br>
+    Bản ứng dụng đang trong quá trình kết nối máy chủ tạo nhạc.
+  </div>
+</main>
+
+<script>
+const API = "";
+let selectedStyle = "Modern Bolero Remix";
+let currentTask = null;
+let polling = false;
+
+const styles = [
+ ["🎸","Modern Bolero Remix","Bolero hiện đại, bass rõ, nhịp remix"],
+ ["🎼","Bolero truyền thống","Trữ tình, guitar, organ"],
+ ["🎹","Pop Ballad","Giai điệu tình cảm, hiện đại"],
+ ["✨","Modern Pop","Trẻ trung, bắt tai"],
+ ["🔥","EDM / Vinahouse","Điện tử, bass mạnh"],
+ ["🌌","Deep House","Nhịp sâu, không gian rộng"],
+ ["🎤","R&B","Groove, vocal hiện đại"],
+ ["🪕","Acoustic Pop","Guitar mộc, nhẹ nhàng"],
+ ["🎸","Pop Rock","Trống mạnh, guitar điện"],
+ ["🪩","Disco Remix","Sôi động, hoài cổ"],
+ ["🌾","Dân ca hiện đại","Âm hưởng dân gian phối mới"],
+ ["🎭","Vọng cổ kết hợp Pop","Cổ truyền kết hợp hiện đại"],
+ ["🌙","Lofi Chill","Nhẹ nhàng, thư giãn"],
+ ["🎻","Cinematic","Nhạc nền rộng, giàu cảm xúc"],
+ ["🎷","Jazz / Blues","Nhạc cụ sống, groove"],
+ ["🎹","Piano Instrumental","Không lời, piano"]
+];
+
+function renderStyles(){
+ const box=document.getElementById("styleList");
+ box.innerHTML="";
+ styles.forEach(s=>{
+   const b=document.createElement("button");
+   b.className="style"+(s[1]===selectedStyle?" selected":"");
+   b.innerHTML=`<span class="emoji">${s[0]}</span><b>${s[1]}</b><small>${s[2]}</small>`;
+   b.onclick=()=>{
+     selectedStyle=s[1];
+     document.getElementById("genre").value=s[1];
+     renderStyles();
+     showTab("compose");
+   };
+   box.appendChild(b);
+ });
+}
+
+document.querySelectorAll(".tab").forEach(btn=>{
+ btn.addEventListener("click",()=>showTab(btn.dataset.tab));
+});
+
+function showTab(id){
+ document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.tab===id));
+ document.querySelectorAll(".section").forEach(x=>x.classList.toggle("active",x.id===id));
+ if(id==="mySongs")renderSongs();
+}
+
+function setStatus(message,type=""){
+ const el=document.getElementById("generationStatus");
+ el.textContent=message;
+ el.className="status "+type;
+}
+
+async function writeLyrics(){
+ const idea=document.getElementById("idea").value.trim();
+ if(idea.length<3){
+   alert("Bồ hãy nhập ý tưởng bài hát trước nhé.");
+   return;
+ }
+
+ const btn=document.getElementById("writeBtn");
+ btn.disabled=true;
+ btn.textContent="AI ĐANG SÁNG TÁC...";
+
+ try{
+   const response=await fetch(API+"/api/lyrics",{
+     method:"POST",
+     headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({
+       idea,
+       genre:document.getElementById("genre").value,
+       voice:document.getElementById("voice").value,
+       mood:document.getElementById("mood").value,
+       language:"Tiếng Việt"
+     })
+   });
+
+   const data=await response.json();
+   if(!response.ok)throw new Error(data.detail||"Không tạo được lời bài hát.");
+
+   document.getElementById("lyrics").value=data.lyrics||"";
+   showTab("compose");
+   alert("Đã nhận lời bài hát từ Gemini.");
+ }catch(e){
+   alert("Lỗi: "+e.message);
+ }finally{
+   btn.disabled=false;
+   btn.textContent="✨ AI SÁNG TÁC LỜI";
+ }
+}
+
+function copyLyrics(){
+ const text=document.getElementById("lyrics");
+ text.select();
+ navigator.clipboard?.writeText(text.value)
+ .then(()=>alert("Đã sao chép lời bài hát."))
+ .catch(()=>alert("Bồ hãy chọn và sao chép nội dung."));
+}
+
+async function generateMusic(){
+ const lyrics=document.getElementById("lyrics").value.trim();
+ if(!lyrics){
+   alert("Hãy nhập lời bài hát trước khi tạo nhạc.");
+   return;
+ }
+
+ const btn=document.getElementById("generateBtn");
+ btn.disabled=true;
+ btn.textContent="ĐANG GỬI YÊU CẦU...";
+
+ document.getElementById("audioResult").classList.add("hidden");
+ setStatus("Đang kết nối máy chủ tạo nhạc...");
+
+ try{
+   const voice=document.getElementById("voice").value;
+   const instruments=document.getElementById("instruments").value+
+     (document.getElementById("noBacking").checked?", no backing vocals":"");
+
+   const response=await fetch(API+"/api/music/generate",{
+     method:"POST",
+     headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({
+       lyrics,
+       genre:document.getElementById("genre").value,
+       voice,
+       instruments,
+       bpm:Number(document.getElementById("bpm").value),
+       duration:Number(document.getElementById("duration").value),
+       format:document.getElementById("format").value
+     })
+   });
+
+   const data=await response.json();
+   if(!response.ok)throw new Error(data.detail||"Không gửi được yêu cầu.");
+
+   currentTask=data.task_id;
+   setStatus("Đã gửi yêu cầu tạo nhạc.\nMã tác vụ: "+currentTask+"\nĐang chờ máy chủ xử lý...","ok");
+
+   await pollTask(currentTask);
+
+ }catch(e){
+   setStatus("Lỗi: "+e.message,"error");
+ }finally{
+   btn.disabled=false;
+   btn.textContent="🎵 TẠO BÀI HÁT";
+ }
+}
+
+async function pollTask(taskId){
+ if(polling)return;
+ polling=true;
+
+ try{
+   for(let i=0;i<180;i++){
+     await new Promise(resolve=>setTimeout(resolve,5000));
+
+     const response=await fetch(
+       API+"/api/music/status/"+encodeURIComponent(taskId)
+     );
+
+     const data=await response.json();
+     if(!response.ok)throw new Error(data.detail||"Lỗi kiểm tra tác vụ.");
+
+     if(data.status===1 && data.audio_files?.length){
+       const audioUrl=data.audio_files[0];
+       const player=document.getElementById("audioPlayer");
+       player.src=audioUrl;
+
+       const download=document.getElementById("downloadAudio");
+       download.href=audioUrl;
+
+       document.getElementById("audioResult").classList.remove("hidden");
+       setStatus("Đã nhận được âm thanh. Bồ có thể nghe và tải bài hát.","ok");
+
+       saveSong({
+         title:"Bài hát "+new Date().toLocaleString("vi-VN"),
+         genre:document.getElementById("genre").value,
+         url:audioUrl,
+         date:new Date().toISOString()
+       });
+       return;
+     }
+
+     if(data.status===2 || data.status===-1){
+       throw new Error(data.error||"Tạo nhạc thất bại.");
+     }
+
+     setStatus("Máy chủ đang tạo nhạc...\nMã tác vụ: "+taskId);
+   }
+
+   throw new Error("Đã hết thời gian chờ. Hãy kiểm tra trạng thái máy chủ.");
+ }finally{
+   polling=false;
+ }
+}
+
+function getSongs(){
+ try{return JSON.parse(localStorage.getItem("phdamSongs")||"[]")}
+ catch(e){return []}
+}
+
+function saveSong(song){
+ const songs=getSongs();
+ songs.unshift(song);
+ localStorage.setItem("phdamSongs",JSON.stringify(songs.slice(0,100)));
+ renderSongs();
+}
+
+function renderSongs(){
+ const box=document.getElementById("songList");
+ const songs=getSongs();
+ box.innerHTML="";
+
+ if(!songs.length){
+   box.innerHTML='<p class="small">Chưa có bài hát nào được lưu.</p>';
+   return;
+ }
+
+ songs.forEach(s=>{
+   const div=document.createElement("div");
+   div.className="song";
+
+   const title=document.createElement("b");
+   title.textContent=s.title;
+
+   const detail=document.createElement("p");
+   detail.className="small";
+   detail.textContent=s.genre+" · "+new Date(s.date).toLocaleString("vi-VN");
+
+   const link=document.createElement("a");
+   link.href=s.url;
+   link.target="_blank";
+   link.rel="noopener";
+   link.textContent="Mở tệp âm thanh";
+
+   div.append(title,detail,link);
+   box.appendChild(div);
+ });
+}
+
+function exportSongs(){
+ const blob=new Blob([JSON.stringify(getSongs(),null,2)],{type:"application/json"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");
+ a.href=url;
+ a.download="AI_Phdam_Music.json";
+ a.click();
+ URL.revokeObjectURL(url);
+}
+
+function clearSongs(){
+ if(!confirm("Bồ có chắc muốn xóa danh sách bài hát đã lưu?"))return;
+ localStorage.removeItem("phdamSongs");
+ renderSongs();
+}
+
+renderStyles();
+renderSongs();
+</script>
+</body>
+  </html>
