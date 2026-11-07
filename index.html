@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Phdam Music - Giai Điệu Lý Nam Bộ</title>
+    <style>
+        :root { --primary: #c97d28; --bg: #121316; --card: #1c1e24; --text: #f0f2f5; --border: #2c2f38; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 30px 15px; display: flex; justify-content: center; }
+        .card { width: 100%; max-width: 600px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        h1 { color: var(--primary); text-align: center; margin-bottom: 5px; font-size: 22px; }
+        p.sub { text-align: center; color: #9aa0a6; font-size: 13px; margin-bottom: 20px; }
+        label { display: block; margin-top: 15px; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        select, textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: #15161a; color: #fff; font-size: 14px; outline: none; }
+        textarea { height: 90px; resize: none; }
+        button { width: 100%; padding: 12px; background: var(--primary); color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .box { margin-top: 20px; padding: 15px; background: #15161a; border-radius: 8px; border: 1px solid var(--border); display: none; }
+        .bar-bg { background: var(--border); height: 8px; border-radius: 4px; overflow: hidden; margin-top: 10px; }
+        .bar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s; }
+        audio { width: 100%; margin-top: 15px; }
+        .btn-dl { display: block; text-align: center; background: #2e7d32; color: #fff; text-decoration: none; padding: 10px; border-radius: 6px; margin-top: 10px; font-weight: bold; font-size: 14px; }
+        .warn { background: #3d2b15; border: 1px solid var(--primary); color: #ffbb73; padding: 10px; border-radius: 6px; text-align: center; font-size: 13px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>AI Phdam Music</h1>
+    <p class="sub">Hòa âm các điệu Lý Nam Bộ thuần túy</p>
+
+    {% if not server_ready %}
+    <div class="warn">⚠️ Chưa kết nối máy chủ AI. Hãy cấu hình ACESTEP_API_URL trên Render.</div>
+    {% endif %}
+
+    <label>Điệu Lý Nam Bộ:</label>
+    <select id="style">
+        {% for s in styles %}
+        <option value="{{ s.name }}">{{ s.name }} ({{ s.desc }})</option>
+        {% endfor %}
+    </select>
+
+    <label>Ý tưởng bài hát / Lời gợi ý:</label>
+    <textarea id="prompt" placeholder="Ví dụ: Cánh đồng lúa chín vàng trĩu hạt, đôi chim quyên hót rộn rã đầu đình..."></textarea>
+
+    <button id="btn" onclick="submitMusic()">Tạo Giai Điệu</button>
+
+    <div id="progBox" class="box">
+        <div id="progText">Đang gửi yêu cầu...</div>
+        <div class="bar-bg"><div id="bar" class="bar"></div></div>
+    </div>
+
+    <div id="resultBox" class="box">
+        <div style="color: #4caf50; font-weight: bold; margin-bottom: 5px;">🎉 Đã tạo thành công bản MP3!</div>
+        <audio id="player" controls></audio>
+        <a id="download" class="btn-dl" href="#" download="phdam_ly_nambo.mp3">Tải Nhạc MP3 Về Máy</a>
+    </div>
+</div>
+
+<script>
+    let timer = null;
+    async function submitMusic() {
+        const style = document.getElementById("style").value;
+        const prompt = document.getElementById("prompt").value.trim();
+        const btn = document.getElementById("btn");
+        const progBox = document.getElementById("progBox");
+        const resultBox = document.getElementById("resultBox");
+        const progText = document.getElementById("progText");
+        const bar = document.getElementById("bar");
+
+        if (!prompt) return alert("Vui lòng nhập lời hoặc nội dung bài hát!");
+
+        btn.disabled = true;
+        progBox.style.display = "block";
+        resultBox.style.display = "none";
+        bar.style.width = "15%";
+        progText.innerText = "Đang khởi tạo bản hòa âm...";
+
+        try {
+            const res = await fetch("/api/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt, style })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Lỗi tạo bài!");
+
+            bar.style.width = "40%";
+            progText.innerText = "Máy chủ AI đang phối khí & xuất file MP3...";
+            checkStatus(data.task_id);
+        } catch (err) {
+            alert(err.message);
+            progBox.style.display = "none";
+            btn.disabled = false;
+        }
+    }
+
+    function checkStatus(taskId) {
+        clearInterval(timer);
+        timer = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/status/${taskId}`);
+                const data = await res.json();
+                if (data.status === "completed" || data.audio_url) {
+                    clearInterval(timer);
+                    document.getElementById("progBox").style.display = "none";
+                    document.getElementById("player").src = data.audio_url;
+                    document.getElementById("download").href = data.audio_url;
+                    document.getElementById("resultBox").style.display = "block";
+                    document.getElementById("btn").disabled = false;
+                } else {
+                    const p = data.progress || 60;
+                    document.getElementById("bar").style.width = p + "%";
+                    document.getElementById("progText").innerText = `Đang xử lý âm thanh (${p}%)...`;
+                }
+            } catch (e) { console.error(e); }
+        }, 2000);
+    }
+</script>
+</body>
+</html>
