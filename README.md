@@ -13,7 +13,7 @@ Tương thích với các AI coding agent phổ biến như: **Claude Code, Curs
 
 ### Cách 2: Dùng Git
 
-    git clone https://github.com/<ten-tai-khoan-cua-ban>/skill-creator.git
+    git clone https://github.com/phdam/AI-Phdam.git
 
 ## Cách sử dụng
 
