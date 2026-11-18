@@ -30,4 +30,27 @@ Repo này tích hợp sẵn 3 skill chuẩn `SKILL.md`:
 
 ### Câu lệnh mẫu gọi AI chạy ngay
 - Tạo skill mới: *"Dùng `skill-creator` trong repo này để tạo cho tao skill làm [việc bạn muốn]"*
-- Làm kịch bản video AI: *"Dùng `tao-vide
+- Làm kịch bản video AI: *"Dùng `tao-video-ai` làm cho tao kịch bản video ngắn về [chủ đề]"*
+- Sửa lỗi & nâng cấp app: *"Dùng `ai-phdam-helper` kiểm tra lỗi và tối ưu code cho `app.py`"*
+
+---
+
+## Cấu trúc chính
+
+    AI-Phdam/
+    ├── app.py                   # Backend Flask chính
+    ├── main.py                  # Entry point
+    ├── index.html               # Giao diện web
+    ├── requirements.txt         # Thư viện Python
+    ├── detector/                # Module nhận diện linh kiện
+    ├── utils/                   # Tiện ích (đọc vạch điện trở, xử lý ảnh)
+    ├── skill-creator/
+    │   └── SKILL.md
+    ├── tao-video-ai/
+    │   └── SKILL.md
+    ├── ai-phdam-helper/
+    │   └── SKILL.md
+    └── README.md
+
+## License
+MIT
