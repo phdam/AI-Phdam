@@ -1,5 +1,5 @@
 ---
-name: skill-creator
+name: skill-creator/SKILL.md
 description: Create, structure, and refine reusable AI Agent Skills following the open SKILL.md standard. Use when the user asks to create a new skill, turn a repeated task or workflow into a skill, or audit and improve an existing SKILL.md file.
 license: MIT
 ---
