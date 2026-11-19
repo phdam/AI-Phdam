@@ -37,6 +37,19 @@ For each scene (`Scene 1`, `Scene 2`, ...):
 - **On-screen text (Chữ trên màn hình)**: Short 3–7 word caption.
 - **Image Prompt (EN)**: Subject, action, environment, lighting, camera angle, style, `vertical 9:16, photorealistic` (or chosen style).
 - **Video Motion Prompt (EN)**: Camera movement + subject motion (e.g., `Slow push-in camera, subtle hair movement in wind, cinematic motion`).
+- **Visual Presets**: Góc quay, ánh sáng, phong cách chuẩn theo preset trong `references/visual-presets.md` (tự động chọn theo loại scene).
+
+### 3b. Visual Presets (Góc quay, Ánh sáng, Phong cách)
+Tham khảo chi tiết tại `references/visual-presets.md`. Các preset chuẩn:
+
+| Loại scene | Preset | Góc quay | Ánh sáng | Phong cách |
+| :--- | :--- | :--- | :--- | :--- |
+| Hook / Kịch tính | Cinematic Tech Hook | Low angle shot | Rembrandt + rim light | Photorealistic, 35mm grain |
+| Gần linh kiện / Macro | Macro Electronics Macro | Macro close-up 100mm | Diffused softbox | Extreme detail, f/2.8 |
+| App / UI demo | Product UI / App Demo | OTS + flat-lay | Clean studio + rim | Clean product render, neon accent |
+| Workshop / Maker | Workshop / Maker Scene | Medium shot eye-level | Warm tungsten + ambient | Cinematic, warm tones |
+
+**Tự động đề xuất lưu:** Sau khi sinh xong bộ kịch bản, **luôn** đề xuất lưu file script vào thư mục `tao-video-ai/outputs/` với tên file `kich-ban-<slug-chu-de>.md` (ví dụ: `kich-ban-AI-Phdam.md`). Hỏi ngắn gọn 1 câu: *"Lưu kịch bản này vào `tao-video-ai/outputs/`?"* Nếu người dùng đồng ý, tạo file ngay.
 
 ### 4. Posting Kit
 - **Caption**: 1–2 short engaging lines + CTA.

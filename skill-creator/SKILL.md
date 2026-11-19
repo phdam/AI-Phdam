@@ -54,3 +54,11 @@ Verify the generated skill against this checklist:
 - [ ] Instructions are specific and actionable (not vague advice).
 - [ ] No hardcoded secrets, API keys, or machine-specific local paths.
 - [ ] If the user's workspace allows writing files, create the folder and files directly; otherwise output the complete file tree and full file contents ready to copy.
+
+**Nhắc kiểm tra checklist:** Sau khi tạo xong skill mới, AI luôn nhắc lại checklist trên và gợi ý xem xét các mục chưa check xong.
+
+**Gợi ý cập nhật README.md:** Sau khi tạo skill mới, AI gợi ý người dùng cập nhật bảng skill trong `README.md` theo mẫu:
+```
+| **Tên skill mới** | `skill-moi/` | Công dụng |
+```
+Trước khi cập nhật, hỏi 1 câu ngắn: *"Cập nhật bảng skill trong README.md?"* Nếu đồng ý, hãy chỉnh bảng ở root `README.md`.
