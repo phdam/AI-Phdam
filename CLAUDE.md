@@ -42,3 +42,5 @@ AI sẽ tự động load skill tương ứng và báo tên skill ở đầu câ
 1. Đọc yêu cầu → tự động match skill → báo skill đang dùng.
 2. Skill thực nhiệm thực hiện task.
 3. Kết quả: nếu tạo file/code → đưa ra file path + nội dung sẵn sàng copy-paste; nếu tạo script → đưa ra nội dung script + hướng dẫn chạy.
+## Self-Learning
+- Read `references/lessons-learned.md` before running a skill and append new reusable lessons.

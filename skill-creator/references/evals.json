@@ -1,0 +1,1 @@
+{"skill":"skill-creator","version":"2.0.0","evals":[{"id":"basic","must_pass":["valid name","<=500 lines","validate_skill.py exit 0"]},{"id":"learn","must_pass":["append rule to lessons-learned.md"]}]}

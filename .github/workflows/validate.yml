@@ -1,0 +1,13 @@
+name: Validate Skills
+on: [push, pull_request]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: |
+          python3 skill-creator/scripts/validate_skill.py skill-creator
+          python3 skill-creator/scripts/validate_skill.py tao-video-ai
+          python3 skill-creator/scripts/validate_skill.py ai-phdam-helper

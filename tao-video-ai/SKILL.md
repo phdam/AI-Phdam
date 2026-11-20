@@ -1,61 +1,13 @@
 ---
 name: tao-video-ai
-description: Generate complete AI short-video production packages from a topic or idea, including 3-second hooks, natural Vietnamese voice-over scripts, scene-by-scene breakdowns, and English image/video prompts. Use when the user asks to create an AI video, write a TikTok/Reels/Shorts script, or generate prompts for Veo, Sora, Kling, Runway, or Midjourney.
+description: Generate AI short-video packages (hooks, Vietnamese voice-over, scenes, English prompts for Veo, Sora, Kling) with self-learning presets. Use for TikTok/Reels/Shorts scripts. Do NOT use for Python debugging or skill authoring.
 license: MIT
+compatibility: Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot
+metadata:
+  author: phdam
+  version: "2.0.0"
 ---
-
-# Tạo Video AI
-
-Turn any raw topic, product, or idea into a ready-to-produce short video package (TikTok, YouTube Shorts, Facebook Reels).
-
-## Communication Rule
-- Respond in the same language as the user (default to natural, spoken Vietnamese for scripts and explanations).
-- Write all AI visual/video generation prompts in clear, descriptive English for maximum model quality.
-- Ask at most 2 quick clarifying questions only if the topic is completely unclear; otherwise choose sensible defaults (30–45 seconds, 9:16 vertical format).
-
-## Step 1: Lock the Video Brief
-Extract or infer:
-1. **Topic & core message**: What is the single takeaway?
-2. **Target audience & tone**: Educational, dramatic, storytelling, review, or humorous?
-3. **Format & duration**: Default `9:16` vertical, `30–45s` (`5–7` scenes).
-
-## Step 2: Build the Production Package
-Always deliver the output in these 4 structured sections:
-
-### 1. Hook Options (3 giây đầu)
-Provide 3 punchy opening lines designed to stop scrolling immediately.
-
-### 2. Full Voice-Over Script (Lời thoại đọc)
-- Write short, conversational sentences easy to read aloud or feed into TTS/ElevenLabs.
-- Mark pacing cues like `[pause]`, `[nhấn giọng]` where helpful.
-- Target ~110–140 Vietnamese words for a 40-second video.
-
-### 3. Scene-by-Scene Breakdown & AI Prompts
-For each scene (`Scene 1`, `Scene 2`, ...):
-- **Time**: e.g., `00:00 - 00:05`
-- **Voice-over line**: Exact spoken text for this scene.
-- **On-screen text (Chữ trên màn hình)**: Short 3–7 word caption.
-- **Image Prompt (EN)**: Subject, action, environment, lighting, camera angle, style, `vertical 9:16, photorealistic` (or chosen style).
-- **Video Motion Prompt (EN)**: Camera movement + subject motion (e.g., `Slow push-in camera, subtle hair movement in wind, cinematic motion`).
-- **Visual Presets**: Góc quay, ánh sáng, phong cách chuẩn theo preset trong `references/visual-presets.md` (tự động chọn theo loại scene).
-
-### 3b. Visual Presets (Góc quay, Ánh sáng, Phong cách)
-Tham khảo chi tiết tại `references/visual-presets.md`. Các preset chuẩn:
-
-| Loại scene | Preset | Góc quay | Ánh sáng | Phong cách |
-| :--- | :--- | :--- | :--- | :--- |
-| Hook / Kịch tính | Cinematic Tech Hook | Low angle shot | Rembrandt + rim light | Photorealistic, 35mm grain |
-| Gần linh kiện / Macro | Macro Electronics Macro | Macro close-up 100mm | Diffused softbox | Extreme detail, f/2.8 |
-| App / UI demo | Product UI / App Demo | OTS + flat-lay | Clean studio + rim | Clean product render, neon accent |
-| Workshop / Maker | Workshop / Maker Scene | Medium shot eye-level | Warm tungsten + ambient | Cinematic, warm tones |
-
-**Tự động đề xuất lưu:** Sau khi sinh xong bộ kịch bản, **luôn** đề xuất lưu file script vào thư mục `tao-video-ai/outputs/` với tên file `kich-ban-<slug-chu-de>.md` (ví dụ: `kich-ban-AI-Phdam.md`). Hỏi ngắn gọn 1 câu: *"Lưu kịch bản này vào `tao-video-ai/outputs/`?"* Nếu người dùng đồng ý, tạo file ngay.
-
-### 4. Posting Kit
-- **Caption**: 1–2 short engaging lines + CTA.
-- **Hashtags**: 5–8 relevant hashtags.
-
-## Rules & Guardrails
-- Keep visual style consistent across all scenes (repeat key character/color/style descriptors in every prompt).
-- Avoid cluttered scenes; each scene should focus on 1 clear visual action.
-- Never include copyrighted brand names or restricted real-person likenesses in generation prompts unless explicitly requested for editorial context.
+# Tạo Video AI (Self-Learning)
+1. Read [references/lessons-learned.md](references/lessons-learned.md) and [references/visual-presets.md](references/visual-presets.md) first.
+2. Output 4 parts: 3 Hooks, Voice-over, Scene-by-scene EN prompts, Posting Kit; offer saving to `tao-video-ai/outputs/`.
+3. Record permanent user style rules into [references/lessons-learned.md](references/lessons-learned.md).
