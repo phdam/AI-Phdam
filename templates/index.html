@@ -1,0 +1,128 @@
+<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><title>AI-Phdam Studio</title>
+<link rel="manifest" href="/manifest.json"><link rel="icon" id="favIcon" href="/icon.png"><link rel="apple-touch-icon" href="/icon.png"><meta name="theme-color" content="#ffffff">
+<style>
+:root{--bg:#ffffff;--p:#f8fafc;--p2:#f1f5f9;--acc:#2563eb;--txt:#111827;--mut:#4b5563;--bd:#cbd5e1}
+*{box-sizing:border-box}html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,sans-serif}
+.app{display:flex;flex-direction:column;height:100dvh;max-width:860px;margin:0 auto}
+.top{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:var(--p);border-bottom:1px solid var(--bd);flex-shrink:0}
+.ibtn{background:var(--p2);color:var(--txt);border:1px solid var(--bd);border-radius:10px;padding:6px 10px;font-size:.83rem;cursor:pointer;font-weight:600}
+.brand{font-weight:700;font-size:.98rem;display:flex;align-items:center;gap:7px}.dot{width:8px;height:8px;border-radius:50%;background:#f59e0b}.dot.on{background:#16a34a}
+.feed{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:10px}.wel{margin:auto 0;text-align:center;padding:16px}
+.wel h2{margin:0 0 6px;font-size:1.3rem;color:var(--txt)}.wel p{margin:0;color:var(--mut);font-size:.9rem}
+.msg{max-width:90%;padding:10px 12px;border-radius:14px;font-size:.92rem;line-height:1.45;word-wrap:break-word}
+.msg.user{align-self:flex-end;background:var(--acc);color:#fff;border-bottom-right-radius:4px}.msg.ai{align-self:flex-start;background:var(--p);border:1px solid var(--bd);color:var(--txt);border-bottom-left-radius:4px}
+.msg img.att{max-width:200px;max-height:150px;width:auto;border-radius:10px;display:block;margin-bottom:5px}.msg img.out,.msg video{max-width:260px;border-radius:10px;margin-top:8px;display:block}
+.tag{display:inline-block;font-size:.72rem;padding:2px 8px;border-radius:999px;background:#e0e7ff;color:#1e40af;margin-bottom:4px;font-weight:700}
+.tbar{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.comp{padding:8px 10px;background:var(--p);border-top:1px solid var(--bd);flex-shrink:0}
+.pbar{display:none;align-items:center;gap:8px;padding-bottom:7px}.pbar.show{display:flex}.pbar img{height:44px;border-radius:8px;border:1px solid var(--bd)}
+.bar{display:flex;align-items:flex-end;gap:7px;background:#fff;border:1px solid var(--bd);border-radius:15px;padding:6px 8px}
+.bar textarea{flex:1;background:transparent;border:none;color:var(--txt);font-size:.94rem;font-family:inherit;resize:none;max-height:100px;padding:5px 2px;outline:none}
+.sbtn{background:var(--acc);color:#fff;border:none;border-radius:10px;padding:8px 13px;font-weight:700;cursor:pointer}.sbtn:disabled{opacity:.45}
+.bk{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:20}.bk.show{display:block}
+.drw{position:fixed;top:0;left:0;bottom:0;width:85%;max-width:310px;background:#fff;border-right:1px solid var(--bd);z-index:30;transform:translateX(-105%);transition:.2s;overflow-y:auto;padding:13px}.drw.show{transform:translateX(0)}
+.dh{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.ds{margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--bd)}.ds h4{margin:0 0 7px;font-size:.8rem;color:#1d4ed8;text-transform:uppercase}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{padding:5px 10px;border-radius:999px;border:1px solid var(--bd);background:var(--p2);color:var(--txt);font-size:.8rem;cursor:pointer}.chip.active{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:700}
+.drw select,.drw input{width:100%;padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--p);color:var(--txt);font-size:.84rem;margin-bottom:7px}
+</style></head><body>
+<div class="bk" id="bk"></div>
+<aside class="drw" id="drw">
+  <div class="dh"><strong>Menu AI-Phdam</strong><button class="ibtn" id="bClose">&#10005;</button></div>
+  <div class="ds"><h4>Chế độ</h4><div class="chips" id="mChips">
+    <div class="chip active" data-m="auto">Tự động</div><div class="chip" data-m="music">Nhạc &amp; Tân cổ</div><div class="chip" data-m="video">Tạo Video</div><div class="chip" data-m="image_edit">Sửa ảnh</div>
+  </div></div>
+  <div class="ds"><h4>Điệu nhạc</h4><select id="styleSel">{% for k, v in music_styles.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+  <div class="ds"><h4>Key AI &amp; Ảnh/Video</h4>
+    <input type="text" id="ckIn" name="custom_ai_key" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="Key Gemini (AQ... / AIza...)" value="{{ chat_key }}">
+    <input type="text" id="fkIn" name="custom_fal_key" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="Key Fal.ai (tùy chọn để đổi đồ/video AI)" value="{{ fal_key }}">
+    <div style="display:flex;gap:6px"><button class="sbtn" id="bSave" style="flex:1">Lưu Key</button><button class="ibtn" id="bClr">Xóa</button></div>
+    <div id="cfgSt" style="font-size:.78rem;margin-top:6px;color:#15803d"></div>
+  </div>
+  <div class="ds"><h4>Icon ứng dụng</h4><input type="file" id="icIn" accept="image/*" style="position:fixed;top:-999px;opacity:0"><label class="ibtn" for="icIn" style="display:block;text-align:center">Chọn ảnh làm Icon App</label><div id="icSt" style="font-size:.76rem;color:#15803d;margin-top:5px"></div></div>
+  <div class="ds"><h4>Lưu trữ Google Drive</h4><a class="ibtn" href="/api/export-installer" download="CaiDat-AI-Phdam.txt" style="display:block;text-align:center;text-decoration:none">Tải File Cài Đặt (Lưu Drive)</a></div>
+</aside>
+<div class="app">
+  <header class="top"><button class="ibtn" id="bMenu">&#9776; Menu</button><div class="brand"><span class="dot {{ 'on' if has_key else '' }}" id="aiDot"></span>AI-Phdam Studio</div><button class="ibtn" id="bNew">+ Mới</button></header>
+  <main class="feed" id="feed"><div class="wel" id="wel"><h2>Chào ngày mới!</h2><p>Bạn cần mình giúp gì hôm nay?</p></div></main>
+  <div class="comp"><div class="pbar" id="pbar"><img id="pImg"><button class="ibtn" id="bRmImg">Xóa ảnh</button></div>
+    <div class="bar"><input type="file" id="fIn" accept="image/*" style="position:fixed;top:-999px;opacity:0"><label class="ibtn" id="bImg" for="fIn">+ Ảnh</label><textarea id="txt" rows="1" placeholder="Nhắn yêu cầu của bạn..."></textarea><button class="sbtn" id="bSend">Gửi</button></div>
+  </div>
+</div>
+<script>
+const [drw,bk,bMenu,bClose,bNew,bImg,fIn,pImg,pbar,bRmImg,ckIn,fkIn,bSave,bClr,cfgSt,aiDot,feed,wel,txt,bSend,styleSel,icIn,icSt,favIcon]=["drw","bk","bMenu","bClose","bNew","bImg","fIn","pImg","pbar","bRmImg","ckIn","fkIn","bSave","bClr","cfgSt","aiDot","feed","wel","txt","bSend","styleSel","icIn","icSt","favIcon"].map(i=>document.getElementById(i));
+let mode="auto",imgData="",hist=[],actx=null,timers=[],instCache={};
+const HKEY="ai_phdam_v1",tog=s=>{drw.classList.toggle("show",s);bk.classList.toggle("show",s)};
+bMenu.onclick=()=>tog(true);bClose.onclick=bk.onclick=()=>tog(false);
+document.querySelectorAll("#mChips .chip").forEach(c=>c.onclick=()=>{document.querySelectorAll("#mChips .chip").forEach(x=>x.classList.remove("active"));c.classList.add("active");mode=c.dataset.m;tog(false)});
+bNew.onclick=()=>{hist=[];localStorage.removeItem(HKEY);feed.innerHTML="";feed.appendChild(wel)};
+fIn.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const mx=640;let w=im.width,h=im.height;if(w>mx||h>mx){if(w>h){h=Math.round(h*mx/w);w=mx}else{w=Math.round(w*mx/h);h=mx}}const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(im,0,0,w,h);imgData=c.toDataURL("image/jpeg",.75);pImg.src=imgData;pbar.classList.add("show")};im.src=r.result};r.readAsDataURL(f)};
+bRmImg.onclick=()=>{imgData="";fIn.value="";pbar.classList.remove("show")};
+async function saveK(v,fv){const r=await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_key:v,fal_key:fv})});const d=await r.json();cfgSt.textContent=d.message;aiDot.classList.toggle("on",!!d.has_key)}
+bSave.onclick=()=>saveK(ckIn.value,fkIn.value);bClr.onclick=()=>{ckIn.value="";fkIn.value="";saveK("","")};
+icIn.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const sz=512,c=document.createElement("canvas");c.width=sz;c.height=sz;const mn=Math.min(im.width,im.height);c.getContext("2d").drawImage(im,(im.width-mn)/2,(im.height-mn)/2,mn,mn,0,0,sz,sz);fetch("/api/set-icon",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:c.toDataURL("image/png")})}).then(x=>x.json()).then(d=>{icSt.textContent=d.message;favIcon.href="/icon.png?t="+Date.now()})};im.src=r.result};r.readAsDataURL(f)};
+const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
+function addMsg(role,html){if(wel.parentNode)wel.remove();const d=document.createElement("div");d.className="msg "+role;d.innerHTML=html;feed.appendChild(d);feed.scrollTop=feed.scrollHeight;return d}
+function stopAudio(){timers.forEach(clearTimeout);timers=[];if(window.speechSynthesis)speechSynthesis.cancel()}
+async function getInst(name){if(instCache[name])return instCache[name];instCache[name]=await Soundfont.instrument(actx,name,{soundfont:"FluidR3_GM"});return instCache[name]}
+async function playBand(type,btn){
+  stopAudio();const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+  if(typeof Soundfont==="undefined"){alert("Đang tải nhạc cụ, thử lại sau 2 giây!");return}
+  if(!actx)actx=new AC();if(actx.state==="suspended")await actx.resume();
+  const old=btn.textContent;btn.textContent="Đang tải...";btn.disabled=true;
+  try{
+    const mp={ngu_cung:["koto","acoustic_guitar_nylon","flute","woodblock"],bolero:["acoustic_guitar_nylon","electric_bass_finger","violin","woodblock"],pop:["acoustic_grand_piano","acoustic_guitar_nylon","electric_bass_finger","synth_drum"],remix:["lead_2_sawtooth","electric_bass_finger","acoustic_grand_piano","synth_drum"]};
+    const [lead,harm,pad,perc]=await Promise.all((mp[type]||mp.pop).map(getInst));btn.textContent="Nghe Ban Nhạc";
+    const mel=type==="ngu_cung"?["C4","D4","F4","G4","A4","G4","F4","D4","C4","F4","A4","C5","A4","G4","F4","D4"]:(type==="bolero"?["A3","C4","E4","A4","G4","F4","E4","D4","E4","G4","B4","E4","C4","A3","E4","A4"]:["C4","E4","G4","C5","A4","G4","E4","D4","F4","A4","D5","B4","G4","E4","C4","G4"]);
+    const bs=type==="ngu_cung"?["C3","G2","F2","C3"]:(type==="bolero"?["A2","D2","E2","A2"]:["C2","A2","F2","G2"]),st=type==="remix"?230:(type==="ngu_cung"?420:330);
+    mel.forEach((n,i)=>timers.push(setTimeout(()=>{if(lead)lead.play(n,actx.currentTime,{duration:.8,gain:1.3});if(i%4===0){const b=bs[Math.floor(i/4)%bs.length];if(harm)harm.play(b,actx.currentTime,{duration:1.4,gain:1.0});if(pad)pad.play(n,actx.currentTime,{duration:1.3,gain:.5})}if(perc&&i%2===0)perc.play(i%4===0?"C5":"G4",actx.currentTime,{duration:.15,gain:.4})},i*st)));
+  }catch(e){btn.textContent=old;alert("Chưa tải được nhạc cụ!")}finally{btn.disabled=false}
+}
+function shareFile(bl,name){const f=new File([bl],name,{type:bl.type});if(navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f],title:name}).catch(()=>{});else{const a=document.createElement("a");a.download=name;a.href=URL.createObjectURL(bl);a.click()}}
+function addImgTools(box,src){
+  const cv=document.createElement("canvas"),ctx=cv.getContext("2d"),im=new Image();cv.style.cssText="max-width:240px;border-radius:10px;margin-top:8px;display:block";
+  im.onload=()=>{cv.width=im.width;cv.height=im.height;ctx.drawImage(im,0,0)};im.src=src;
+  const bar=document.createElement("div");bar.className="tbar";
+  [["Gốc","none"],["Ấm","sepia(.5) saturate(1.4)"],["Cổ","sepia(.85) contrast(1.1)"],["Đen trắng","grayscale(1)"],["Sáng","brightness(1.2)"]].forEach(([lb,fl])=>{const b=document.createElement("button");b.className="ibtn";b.textContent=lb;b.onclick=()=>{ctx.filter=fl;ctx.drawImage(im,0,0)};bar.appendChild(b)});
+  const dl=document.createElement("button");dl.className="ibtn";dl.textContent="Lưu Drive / Tải";dl.onclick=()=>cv.toBlob(b=>shareFile(b,"ai-phdam-anh.png"));bar.appendChild(dl);box.append(cv,bar);
+}
+function makeVid(box,src,cap){
+  const b=document.createElement("button");b.className="ibtn";b.textContent="Tạo Video từ ảnh";
+  b.onclick=()=>{b.disabled=true;b.textContent="Đang dựng Video...";const im=new Image();im.onload=()=>{
+    const c=document.createElement("canvas");c.width=480;c.height=640;const x=c.getContext("2d"),mr=new MediaRecorder(c.captureStream(25)),ch=[];
+    mr.ondataavailable=e=>{if(e.data.size)ch.push(e.data)};
+    mr.onstop=()=>{const bl=new Blob(ch,{type:mr.mimeType||"video/webm"}),v=document.createElement("video");v.controls=true;v.src=URL.createObjectURL(bl);const sv=document.createElement("button");sv.className="ibtn";sv.textContent="Lưu Video lên Drive";sv.onclick=()=>shareFile(bl,"ai-phdam-video.webm");box.append(v,sv);b.textContent="Đã tạo Video!";b.disabled=false};
+    mr.start();let f=0;const tot=125,iv=setInterval(()=>{x.fillStyle="#000";x.fillRect(0,0,480,640);const sc=1+0.14*(f/tot),r=Math.min(480/im.width,640/im.height),w=im.width*r*sc,h=im.height*r*sc;x.drawImage(im,(480-w)/2,(640-h)/2,w,h);if(cap){x.fillStyle="rgba(0,0,0,.45)";x.fillRect(0,585,480,55);x.fillStyle="#fff";x.font="bold 18px sans-serif";x.textAlign="center";x.fillText(cap.slice(0,38),240,618)}if(++f>=tot){clearInterval(iv);mr.stop()}},40);
+  };im.src=src};box.appendChild(b);
+}
+function addTools(box,full,sy,img,cap){
+  const tb=document.createElement("div");tb.className="tbar";
+  if(sy){const bp=document.createElement("button");bp.className="ibtn";bp.textContent="Nghe Ban Nhạc";bp.onclick=()=>playBand(sy,bp);const bs=document.createElement("button");bs.className="ibtn";bs.textContent="Dừng";bs.onclick=stopAudio;tb.append(bp,bs)}
+  const cp=document.createElement("button");cp.className="ibtn";cp.textContent="Copy lời";cp.onclick=()=>{navigator.clipboard.writeText(full).then(()=>{cp.textContent="Đã copy!";setTimeout(()=>cp.textContent="Copy lời",1500)})};
+  const sn=document.createElement("button");sn.className="ibtn";sn.textContent="Mở Suno";sn.onclick=()=>window.open("https://suno.com","_blank");
+  tb.append(cp,sn);
+  if(window.speechSynthesis){const sp=document.createElement("button");sp.className="ibtn";sp.textContent="Đọc lời";sp.onclick=()=>{stopAudio();const u=new SpeechSynthesisUtterance(full);u.lang="vi-VN";speechSynthesis.speak(u)};tb.appendChild(sp)}
+  box.appendChild(tb);
+  if(img){addImgTools(box,img);makeVid(box,img,cap)}
+}
+function saveD(r,t,i,sy){try{const a=JSON.parse(localStorage.getItem(HKEY)||"[]");a.push({r,t,i:i||"",s:sy||""});if(a.length>40)a.splice(0,a.length-40);localStorage.setItem(HKEY,JSON.stringify(a))}catch(e){}}
+try{JSON.parse(localStorage.getItem(HKEY)||"[]").forEach(x=>{hist.push({role:x.r==="ai"?"ai":"user",text:x.t});const bx=addMsg(x.r,x.r==="user"?esc(x.t):`<div class="tag">${x.i||"AI"}</div><div class="body">${esc(x.t)}</div>`);if(x.r==="ai")addTools(bx,x.t,x.s,"","")})}catch(e){}
+async function pollMed(su,ru,box){for(let i=0;i<60;i++){await new Promise(r=>setTimeout(r,3000));const d=await(await fetch("/api/media-status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({status_url:su,response_url:ru})})).json();if(d.video_url){box.insertAdjacentHTML("beforeend",`<video controls autoplay src="${d.video_url}"></video>`);return}}}
+async function send(){
+  const m=txt.value.trim();if(!m&&!imgData)return;
+  const curImg=imgData;txt.value="";bRmImg.click();
+  addMsg("user",(curImg?`<img class="att" src="${curImg}">`:"")+esc(m));
+  const box=addMsg("ai",`<div class="tag">AI</div><div class="body">...</div>`),bd=box.querySelector(".body"),tg=box.querySelector(".tag");
+  bSend.disabled=true;bSend.textContent="Đang gửi...";
+  try{
+    const r=await fetch("/api/chat-stream",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:m,mode,music_style:styleSel.value,image_data:curImg,history:hist})});
+    const rd=r.body.getReader(),dec=new TextDecoder("utf-8");let buf="",full="",meta={};
+    while(true){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const ps=buf.split("\n\n");buf=ps.pop();for(const p of ps){if(!p.startsWith("data: "))continue;const d=JSON.parse(p.slice(6));if(d.intent)tg.textContent=d.intent.toUpperCase();if(d.chunk){full+=d.chunk;bd.innerHTML=esc(full);feed.scrollTop=feed.scrollHeight}if(d.done)meta=d}}
+    hist.push({role:"user",text:m},{role:"ai",text:full});saveD("user",m,"","");saveD("ai",full,tg.textContent,meta.synth);
+    addTools(box,full,meta.synth,(meta.img_tools||meta.vid_tools)?curImg:"",m);
+    if(meta.media){if(meta.media.image_url)box.insertAdjacentHTML("beforeend",`<img class="out" src="${meta.media.image_url}">`);else if(meta.media.status_url)pollMed(meta.media.status_url,meta.media.response_url,box)}
+    if(meta.media_note)box.insertAdjacentHTML("beforeend",`<div style="color:#b45309;margin-top:6px">${esc(meta.media_note)}</div>`);
+  }catch(e){bd.innerHTML="Lỗi: "+esc(e.message)}
+  finally{bSend.disabled=false;bSend.textContent="Gửi";feed.scrollTop=feed.scrollHeight}
+}
+bSend.onclick=send;
+if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
+</script><script async src="https://cdn.jsdelivr.net/npm/soundfont-player/dist/soundfont-player.min.js"></script></body></html>
