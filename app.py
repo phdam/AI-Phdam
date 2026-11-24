@@ -157,11 +157,23 @@ def call_fal(intent, prompt_en, img, fk):
     except Exception as e: return None, str(e)
 
 @app.route("/manifest.json")
-def manifest():
-    v=int(os.path.getmtime(ICON_P)) if os.path.exists(ICON_P) else 0
-    r=jsonify({"name": "AI-Phdam Studio", "short_name": "AI-Phdam", "start_url": "/", "display": "standalone", "background_color": "#ffffff", "theme_color": "#ffffff", "icons": [{"src": f"/icon.png?v={v}", "sizes": "512x512", "type": "image/png", "purpose": "any"}, {"src": f"/icon.png?v={v}", "sizes": "192x192", "type": "image/png", "purpose": "any"}]})
-    r.headers["Cache-Control"]="no-store"; return r
-
+def manifest_json():
+    return jsonify({
+        "id": "/",
+        "name": "AI-Phdam Studio",
+        "short_name": "AI-Phdam",
+        "description": "Tro ly AI da nang phan tich nhac, hinh anh va video",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#2563eb",
+        "orientation": "portrait",
+        "icons": [
+            {"src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+        ]
+    })
 @app.route("/sw.js")
 def sw():
     return Response("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(clients.claim()));", mimetype="application/javascript")
