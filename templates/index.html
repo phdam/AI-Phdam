@@ -44,7 +44,7 @@
   <header class="top"><button class="ibtn" id="bMenu">&#9776; Menu</button><div class="brand"><span class="dot {{ 'on' if has_key else '' }}" id="aiDot"></span>AI-Phdam Studio</div><button class="ibtn" id="bNew">+ Mới</button></header>
   <main class="feed" id="feed"><div class="wel" id="wel"><h2>Chào ngày mới!</h2><p>Bạn cần mình giúp gì hôm nay?</p></div></main>
   <div class="comp"><div class="pbar" id="pbar"><img id="pImg"><button class="ibtn" id="bRmImg">Xóa ảnh</button></div>
-    <div class="bar"><input type="file" id="fIn" accept="image/*" style="position:fixed;top:-999px;opacity:0"><label class="ibtn" id="bImg" for="fIn">+ Ảnh</label><textarea id="txt" rows="1" placeholder="Nhắn yêu cầu của bạn..."></textarea><button class="sbtn" id="bSend">Gửi</button></div>
+    <div id="mStrip" style="display:none;flex-wrap:wrap;gap:6px;padding:6px 10px;background:#f8fafc;border-top:1px solid #e2e8f0;align-items:center;font-size:.78rem"></div><div class="bar"><input type="file" id="fIn" multiple accept="image/*,audio/*,video/*" style="position:fixed;top:-999px;opacity:0"><label class="ibtn" id="bImg" for="fIn">+ Tệp</label><textarea id="txt" rows="1" placeholder="Nhắn yêu cầu của bạn..."></textarea><button class="sbtn" id="bSend">Gửi</button></div>
   </div>
 </div>
 <script>
@@ -107,7 +107,7 @@ function saveD(r,t,i,sy){try{const a=JSON.parse(localStorage.getItem(HKEY)||"[]"
 try{JSON.parse(localStorage.getItem(HKEY)||"[]").forEach(x=>{hist.push({role:x.r==="ai"?"ai":"user",text:x.t});const bx=addMsg(x.r,x.r==="user"?esc(x.t):`<div class="tag">${x.i||"AI"}</div><div class="body">${esc(x.t)}</div>`);if(x.r==="ai")addTools(bx,x.t,x.s,"","")})}catch(e){}
 async function pollMed(su,ru,box){for(let i=0;i<60;i++){await new Promise(r=>setTimeout(r,3000));const d=await(await fetch("/api/media-status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({status_url:su,response_url:ru})})).json();if(d.video_url){box.insertAdjacentHTML("beforeend",`<video controls autoplay src="${d.video_url}"></video>`);return}}}
 async function send(){
-  const m=txt.value.trim();if(!m&&!imgData)return;
+  const m=txt.value.trim();if(!m&&!imgData&&!(window._sessionFiles&&window._sessionFiles.length))return;
   const curImg=imgData;txt.value="";bRmImg.click();
   addMsg("user",(curImg?`<img class="att" src="${curImg}">`:"")+esc(m));
   const box=addMsg("ai",`<div class="tag">AI</div><div class="body">...</div>`),bd=box.querySelector(".body"),tg=box.querySelector(".tag");
