@@ -221,34 +221,118 @@ def api_config():
         except Exception as e: return jsonify({"status": "ok", "message": f"Lỗi mạng: {e}", "has_key": False})
     return jsonify({"status": "ok", "message": "Đã lưu Key!", "has_key": True})
 
+# === SMART_BRAIN_START ===
+SMART_BRAIN_PROMPT = """Bạn là AI-Phdam — trợ lý AI thông minh, thực tế và có tư duy phân tích sắc bén.
+NGUYÊN TẮC CỐT LÕI KHI TRẢ LỜI:
+1. Nhận diện chính xác chủ đề và mục đích câu hỏi của người dùng (lập trình/code, kỹ thuật/điện tử, kiến thức khoa học/đời sống, lập kế hoạch/ý tưởng sản phẩm, hay phân tích tệp đính kèm).
+2. Bám sát 100% nội dung người dùng đang hỏi: TUYỆT ĐỐI KHÔNG tự ý chuyển sang sáng tác nhạc, viết lời bài hát, thơ hay kịch bản phim/âm thanh nếu người dùng không yêu cầu.
+3. Định hướng trả lời chất lượng cao theo từng lĩnh vực:
+   - Với Lập trình / Sửa lỗi kỹ thuật: đi thẳng vào nguyên nhân gốc rễ, giải pháp từng bước rõ ràng, đưa code sạch chạy được ngay và lưu ý lỗi dễ gặp.
+   - Với Ý tưởng / Tư duy / Kinh doanh: phân tích tính khả thi, ưu nhược điểm, gợi ý phương án tối ưu và các bước thực hiện cụ thể.
+   - Với Kiến thức / Hỏi đáp chung: giải thích mạch lạc, chính xác, ví dụ sát thực tế, ngắn gọn đúng trọng tâm.
+4. Trả lời bằng tiếng Việt tự nhiên, thẳng thắn; nếu thiếu dữ liệu hoặc chưa chắc chắn thì nói rõ phần cần bổ sung, không đoán mò."""
+
+def smart_intent_of(msg, mode, has_img, media_files):
+    m = (msg or "").lower().strip()
+    if mode and mode != "auto":
+        return mode
+    if any(k in m for k in ("không sáng tác", "ko sáng tác", "đừng sáng tác", "có sáng tác đâu", "không phải nhạc", "ko viết nhạc", "đừng viết nhạc")):
+        return "chat"
+    if media_files:
+        return "chat"
+    if re.search(r'(sáng tác|viết lời|viết bài hát|tạo bài hát|phổ nhạc|làm bài nhạc|viết rap|viết bolero|sáng tác nhạc)', m):
+        return "music"
+    if has_img and re.search(r'(sửa ảnh|đổi đồ|thay nền|chỉnh ảnh|tạo video|biến thành video)', m):
+        return "video" if "video" in m else "image_edit"
+    if re.search(r'^(tạo video|vẽ ảnh|tạo ảnh)\b', m):
+        return "video" if "video" in m else "image_edit"
+    return "chat"
+
+def build_smart_analysis(base_prompt, media_files, has_img):
+    if not media_files and not has_img:
+        return base_prompt
+    mimes = [m.get("mime", "") for m in (media_files or [])]
+    extra = ["\n[QUY TẮC PHÂN TÍCH ĐA PHƯƠNG TIỆN]"]
+    if any(m.startswith("audio/") for m in mimes):
+        extra.append(
+            "- Với âm thanh/nhạc (MP3/Audio): Nghe kỹ toàn bộ file và trình bày rõ: "
+            "(1) Các nhạc cụ chính và phụ (trống, bass, guitar, piano, synth, sáo...), "
+            "(2) Giai điệu, nhịp điệu/tempo (ước lượng BPM), tone/cảm xúc, thể loại, "
+            "(3) Cấu trúc bài theo mốc thời gian MM:SS (Intro, Verse, Điệp khúc, Solo, Outro)."
+        )
+    if any(m.startswith(("image/", "video/")) for m in mimes) or len(mimes) > 1:
+        extra.append(
+            "- Với nhiều Ảnh / Video liên kết kỹ thuật: "
+            "(1) Trích xuất chi tiết từng [Tệp đính kèm #i]: đọc chính xác số dây, nhãn terminal, màu dây, mã thiết bị và mốc MM:SS trong video. "
+            "(2) Xâu chuỗi & đối chiếu chéo các điểm trùng khớp giữa các ảnh và video. "
+            "(3) Đưa ra kết luận rõ ràng: đầu dây/chi tiết đi từ đâu -> tới thiết bị nào -> nhiệm vụ gì. "
+            "Nếu bị khuất góc quay, mờ chữ hoặc chưa đủ bằng chứng, PHẢI nói rõ thiếu ở đâu để chụp bổ sung, tuyệt đối không đoán mò."
+        )
+    return base_prompt + "\n".join(extra)
+
+def build_smart_sys_prompt(intent, sk, media_files, has_img):
+    if intent == "music":
+        base = f"{BRAIN_PROMPT}\nTác vụ: music. Điệu: {STYLES.get(sk, 'Tự động')}."
+    elif intent in ("image_edit", "video"):
+        base = f"{BRAIN_PROMPT}\nTác vụ: {intent}."
+    else:
+        base = SMART_BRAIN_PROMPT
+    return build_smart_analysis(base, media_files, has_img)
+# === SMART_BRAIN_END ===
+
 @app.route("/api/chat-stream", methods=["POST"])
 def api_chat_stream():
     d = request.get_json(silent=True) or {}
-    msg, mode, sk, img, hist = (d.get("message") or "").strip(), d.get("mode") or "auto", d.get("music_style") or "auto", d.get("image_data") or "", d.get("history") or []
-    if not msg and not img: return jsonify({"status": "error", "message": "Hãy nhập nội dung!"}), 400
-    intent, ck, fk = intent_of(msg, mode, bool(img)), os.getenv("AI_CHAT_KEY", "").strip(), os.getenv("FAL_API_KEY", "").strip()
-    sys_p = f"{BRAIN_PROMPT}\nTác vụ: {intent}. Điệu: {STYLES.get(sk,'Tự động')}."
+    msg = (d.get("message") or "").strip()
+    mode = d.get("mode") or "auto"
+    sk = d.get("music_style") or "auto"
+    img = d.get("image_data") or ""
+    hist = d.get("history") or []
+    media_files = d.get("media_files") or []
+    if not msg and not img and not media_files:
+        return jsonify({"status": "error", "message": "Hãy nhập nội dung hoặc đính kèm tệp!"}), 400
+    intent = smart_intent_of(msg, mode, bool(img), media_files)
+    ck = os.getenv("AI_CHAT_KEY", "").strip()
+    fk = os.getenv("FAL_API_KEY", "").strip()
+    sys_p = build_smart_sys_prompt(intent, sk, media_files, bool(img))
     def gen():
         yield sse({"intent": intent})
         got, err, full = False, "", ""
         if ck.startswith(("AIza", "AQ.")):
-            for c in stream_gemini(ck, sys_p, msg or "Phân tích ảnh", hist, img):
-                if c.startswith("__ERR__:"): err = c[8:]; break
-                got = True; full += c; yield sse({"chunk": c})
+            it = stream_gemini_multimodal(ck, sys_p, msg, hist, img, media_files) if "stream_gemini_multimodal" in globals() else stream_gemini(ck, sys_p, msg or "Phân tích ảnh", hist, img)
+            for c in it:
+                if c.startswith("__ERR__:"):
+                    err = c[8:]
+                    break
+                got = True
+                full += c
+                yield sse({"chunk": c})
         if not got:
-            off = offline_compose(intent, sk, msg)
-            if err: off = f"[Key lỗi ({err}) -> Chế độ Độc Lập]\n\n" + off
-            full = off; yield sse({"chunk": off})
-        out = {"done": True, "intent": intent, "synth": synth_of(sk, msg) if intent == "music" else "", "img_tools": bool(img) and intent == "image_edit", "vid_tools": bool(img) and intent == "video"}
-        if fk and intent in ("video", "image_edit"):
+            if intent == "music":
+                off = offline_compose(intent, sk, msg)
+                if err:
+                    off = f"[Key lỗi ({err}) -> Chế độ Độc Lập]\n\n" + off
+            else:
+                off = f"[Chưa kết nối được AI ({err or 'Chưa có Gemini Key'})]\nHãy vào ≡ Menu kiểm tra lại mã Key Gemini để chat thông minh."
+            full = off
+            yield sse({"chunk": off})
+        out = {
+            "done": True,
+            "intent": intent,
+            "synth": synth_of(sk, msg) if intent == "music" else "",
+            "img_tools": bool(img) and intent == "image_edit",
+            "vid_tools": bool(img) and intent == "video",
+        }
+        if fk and not media_files and intent in ("video", "image_edit"):
             m = re.search(r"MEDIA_PROMPT:\s*(.+)", full)
             mp = m.group(1).strip() if m else (msg or "cinematic realistic style")
             mr, me = call_fal(intent, mp, img, fk)
-            if mr: out["media"] = mr
-            elif me: out["media_note"] = me
+            if mr:
+                out["media"] = mr
+            elif me:
+                out["media_note"] = me
         yield sse(out)
-    return Response(stream_with_context(gen()), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
-
+    return Response(stream_with_context(gen()), mimetype="text/event-stream")
 @app.route("/api/media-status", methods=["POST"])
 def api_media_status():
     d = request.get_json(silent=True) or {}
