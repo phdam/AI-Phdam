@@ -47,7 +47,7 @@ def _check_app_pin():
     pin = os.getenv("APP_PIN", "").strip()
     if not pin: return None
     p = request.path
-    if p in ("/manifest.json", "/sw.js", "/icon.png", "/favicon.ico", "/unlock"): return None
+    if p in ("/manifest.json", "/sw.js", "/icon.png", "/favicon.ico", "/unlock", "/privacy") or p.startswith("/.well-known/"): return None
     if _hm.compare_digest(request.cookies.get("phdam_auth", ""), _pin_token(pin)): return None
     if p.startswith("/api/"): return jsonify({"status": "error", "message": "Chưa mở khóa PIN"}), 401
     return """<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI-Phdam Studio</title><link rel="manifest" href="/manifest.json"><link rel="icon" href="/icon.png"><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f1f5f9}.box{background:#fff;padding:24px;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.08);width:90%;max-width:320px;text-align:center}input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px;margin:12px 0;text-align:center}button{width:100%;padding:12px;border:none;border-radius:10px;background:#2563eb;color:#fff;font-size:16px;font-weight:600}</style></head><body><form class="box" method="post" action="/unlock"><h3>🔒 AI-Phdam Studio</h3><input type="password" name="pin" inputmode="numeric" placeholder="Nhập mã PIN..." autofocus required><button type="submit">Mở khóa</button></form></body></html>"""
@@ -246,7 +246,7 @@ def stream_gemini_mm(key, sys_p, msg, hist, img, media_files):
     contents = []
     for h in (hist or [])[-16:]:
         if not isinstance(h, dict): continue
-        role = "model" if h.get("role") in ("assistant", "model", "bot") else "user"
+        role = "model" if h.get("role") in ("assistant", "model", "bot", "ai") else "user"
         ht = (h.get("text") or h.get("content") or h.get("msg") or h.get("message") or "").strip()
         if not ht and isinstance(h.get("parts"), list): ht = " ".join(p.get("text", "") for p in h["parts"] if isinstance(p, dict)).strip()
         if not ht: continue
@@ -377,6 +377,18 @@ def api_media_status():
             return jsonify({"status": "completed", "video_url": (out.get("video") or {}).get("url")})
         return jsonify({"status": "processing"})
     except Exception as e: return jsonify({"status": "error", "message": str(e)}), 502
+
+
+@app.route("/.well-known/assetlinks.json")
+def _assetlinks_json():
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "assetlinks.json")
+    if os.path.exists(p):
+        return send_file(p, mimetype="application/json")
+    return jsonify([])
+
+@app.route("/privacy")
+def _privacy_page():
+    return """<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chính sách bảo mật - AI-Phdam</title></head><body style="font-family:sans-serif;max-width:680px;margin:24px auto;padding:0 16px;line-height:1.6"><h2>Chính sách bảo mật - AI-Phdam Studio</h2><p>Ứng dụng không bán hoặc chia sẻ dữ liệu cá nhân của bạn cho bên thứ ba. Nội dung bạn tải lên chỉ được gửi qua Google Gemini API để xử lý theo yêu cầu của chính bạn.</p></body></html>"""
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False, threaded=True)
