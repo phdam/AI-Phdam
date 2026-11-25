@@ -175,12 +175,31 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
     document.querySelectorAll("button").forEach(btn=>{
       const t = (btn.textContent||"").trim();
       if(!["Copy lời","Mở Suno","Đọc lời","Copy bài hát"].includes(t)) return;
-      const row = btn.parentElement, card = (row && row.parentElement) || row;
-      const head = card && card.firstElementChild ? card.firstElementChild.textContent : "";
-      const isM = /\bMUSIC\b/i.test((head||"").trim());
-      if(isM && (t==="Copy lời"||t==="Copy bài hát")){ btn.textContent="Copy bài hát"; btn.style.display=""; }
-      else if(isM && t==="Mở Suno"){ btn.style.display=""; }
-      else { btn.style.display="none"; }
+      const row = btn.parentElement;
+      let cur = row, card = null;
+      for(let i=0; i<6 && cur && cur!==document.body; i++){
+        const txt = (cur.innerText||cur.textContent||"").trim();
+        if(/^(MUSIC|CHAT|VIDEO|IMAGE_EDIT)\b/i.test(txt)){ card = cur; break; }
+        cur = cur.parentElement;
+      }
+      const ctxt = card ? (card.innerText||card.textContent||"").trim() : "";
+      const isM = /^MUSIC\b/i.test(ctxt);
+      if(isM && (t==="Copy lời"||t==="Copy bài hát")){
+        btn.textContent = "Copy bài hát";
+        btn.style.display = "";
+      } else if(isM && t==="Mở Suno"){
+        btn.style.display = "";
+      } else {
+        btn.style.display = "none";
+      }
+      if(isM && row && !row.querySelector("[data-suno-fb]") && !Array.from(row.querySelectorAll("button")).some(b=>(b.textContent||"").trim()==="Mở Suno" && b.style.display!=="none")){
+        const sb = document.createElement("button");
+        sb.className = btn.className;
+        sb.textContent = "Mở Suno";
+        sb.setAttribute("data-suno-fb","1");
+        sb.onclick = ()=>window.open("https://suno.com/create","_blank");
+        row.appendChild(sb);
+      }
       if(row) row.style.display = Array.from(row.children).some(c=>c.style.display!=="none") ? "" : "none";
     });
   }

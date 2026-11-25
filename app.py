@@ -223,7 +223,7 @@ def smart_intent_of(msg, mode, has_img, media_files):
     if mode and mode != "auto": return mode
     if any(k in m for k in ("không sáng tác", "ko sáng tác", "đừng sáng tác", "có sáng tác đâu", "không phải nhạc", "ko viết nhạc", "đừng viết nhạc")): return "chat"
     if media_files: return "chat"
-    if re.search(r'(sáng tác|viết lời|viết bài hát|tạo bài hát|phổ nhạc|làm bài nhạc|viết rap|viết bolero|sáng tác nhạc)', m): return "music"
+    if re.search(r'(sáng tác|viết lời|viết bài hát|tạo bài hát|làm bài hát|viết nhạc|tạo nhạc|chế nhạc|phổ nhạc|làm bài nhạc|viết rap|viết bolero|sáng tác nhạc)', m): return "music"
     if has_img and re.search(r'(sửa ảnh|đổi đồ|thay nền|chỉnh ảnh|tạo video|biến thành video)', m): return "video" if "video" in m else "image_edit"
     if re.search(r'^(tạo video|vẽ ảnh|tạo ảnh)\b', m): return "video" if "video" in m else "image_edit"
     return "chat"
