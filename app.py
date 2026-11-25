@@ -246,11 +246,13 @@ def _guess_mime(filename, raw_mime):
 
 def stream_gemini_multimodal(key, sys_p, msg, hist, img, media_files):
     contents = []
-    for h in (hist or [])[-14:]:
+    for h in (hist or [])[-16:]:
         if not isinstance(h, dict):
             continue
-        role = "model" if h.get("role") in ("assistant", "model") else "user"
-        ht = (h.get("text") or h.get("content") or "").strip()
+        role = "model" if h.get("role") in ("assistant", "model", "bot") else "user"
+        ht = (h.get("text") or h.get("content") or h.get("msg") or h.get("message") or "").strip()
+        if not ht and isinstance(h.get("parts"), list):
+            ht = " ".join(p.get("text", "") for p in h["parts"] if isinstance(p, dict)).strip()
         if not ht:
             continue
         if contents and contents[-1]["role"] == role:
@@ -282,16 +284,17 @@ def stream_gemini_multimodal(key, sys_p, msg, hist, img, media_files):
     body = {
         "systemInstruction": {"parts": [{"text": sys_p}]},
         "contents": contents,
-        "generationConfig": {"maxOutputTokens": 8192}
+        "generationConfig": {"maxOutputTokens": 8192, "temperature": 0.4}
     }
     last_code, last_err = 0, ""
-    for mdl in ("gemini-3.5-flash-lite", "gemini-3.6-flash"):
+    for mdl in ("gemini-3.6-flash", "gemini-3.5-flash-lite"):
         try:
             r = SESSION.post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:streamGenerateContent?alt=sse",
                 headers={"x-goog-api-key": key, "Content-Type": "application/json"},
                 json=body, stream=True, timeout=(10, 120)
             )
+            r.encoding = "utf-8"
             last_code = r.status_code
             if last_code in (400, 401, 403):
                 try:
@@ -304,8 +307,11 @@ def stream_gemini_multimodal(key, sys_p, msg, hist, img, media_files):
                 last_err = r.text[:120]
                 continue
             got = False
-            for raw in r.iter_lines(decode_unicode=True):
-                if not raw or not raw.startswith("data:"):
+            for raw_b in r.iter_lines(decode_unicode=False):
+                if not raw_b:
+                    continue
+                raw = raw_b.decode("utf-8", errors="replace")
+                if not raw.startswith("data:"):
                     continue
                 pl = raw[5:].strip()
                 if pl == "[DONE]":
@@ -421,13 +427,12 @@ def _load_mem():
     return {"turns": []}
 
 LAST_MEM = _load_mem()
+GREETINGS = ("alo", "alô", "hi", "hello", "chào", "chào bạn", "ê", "tiếp tục", "làm tiếp", "tiếp đi")
 
 def _save_mem(u_msg, a_msg):
     um = (u_msg or "").strip()
     am = (a_msg or "").strip()
-    if not um or not am:
-        return
-    if um.lower() in ("alo", "alô", "hi", "hello", "chào", "ê", "ok", "test"):
+    if not um or not am or um.lower() in GREETINGS or len(um) < 4:
         return
     LAST_MEM.setdefault("turns", []).append({"u": um[:400], "a": am[:600]})
     LAST_MEM["turns"] = LAST_MEM["turns"][-5:]
@@ -437,13 +442,15 @@ def _save_mem(u_msg, a_msg):
     except Exception:
         pass
 
-SMART_BRAIN_PROMPT = """Bạn là AI-Phdam — trợ lý AI riêng của người dùng, nói chuyện tự nhiên, thông minh và bám sát công việc.
+SMART_BRAIN_PROMPT = """Bạn là AI-Phdam — trợ lý AI thông minh, chính xác và có kỷ luật cao.
 NGUYÊN TẮC BẮT BUỘC:
-1. Khi người dùng chỉ chào ngắn như "Alo", "Hi", "Hello":
-   - Nếu trong lịch sử trò chuyện hoặc ngữ cảnh gần nhất ĐÃ CÓ công việc đang bàn dở: chỉ chào ĐÚNG 1 câu ngắn và nhắc tiếp tục ngay nội dung công việc đó (VD: "Alo, mình nghe đây! Mình làm tiếp phần lưu video từ camera vào điện thoại nhé?").
-   - Nếu trước đó CHƯA có công việc gì: chỉ đáp ĐÚNG 1 câu chào ngắn gọn thân thiện (VD: "Alo, mình nghe đây! Bạn cần làm gì?"). TUYỆT ĐỐI KHÔNG liệt kê danh sách các lĩnh vực kiểu "Lập trình / Kỹ thuật / Khoa học...".
-2. Khi người dùng hỏi về vấn đề cụ thể (lập trình, camera, điện tử, kỹ thuật, ý tưởng, kiến thức...): đi thẳng vào trọng tâm, phân tích rõ ràng, đưa phương án/code thực tế, không rào đón dài dòng.
-3. TUYỆT ĐỐI KHÔNG tự ý chuyển sang sáng tác nhạc, thơ hay kịch bản nếu người dùng không yêu cầu sáng tác."""
+1. BÁM SÁT 100% NỘI DUNG NGƯỜI DÙNG HỎI HOẶC NÓI:
+   - Chỉ tập trung giải quyết đúng vấn đề, đúng đề tài trong câu hỏi và lịch sử cuộc trò chuyện hiện tại.
+   - TUYỆT ĐỐI KHÔNG trả lời lan man, không tự bịa thêm chi tiết không liên quan, không tự ý chuyển sang sáng tác nhạc/thơ/kịch bản.
+   - Trả lời thẳng vào trọng tâm, rõ ràng, có chiều sâu kỹ thuật/thực tế, các bước làm cụ thể. Nếu thiếu thông tin để kết luận chắc chắn thì hỏi lại đúng điểm còn thiếu.
+2. KHI NGƯỜI DÙNG CHỈ CHÀO NGẮN ("Alo", "Chào", "Hi", "Hello"):
+   - Nếu có công việc đang bàn trước đó: chào ĐÚNG 1 câu ngắn và hỏi tiếp tục đúng công việc đó.
+   - Nếu chưa có công việc gì trước đó: chào ĐÚNG 1 câu ngắn gọn (VD: "Alo, mình nghe đây! Bạn cần giúp việc gì?"). Không liệt kê dài dòng."""
 
 def smart_intent_of(msg, mode, has_img, media_files):
     m = (msg or "").lower().strip()
@@ -477,7 +484,7 @@ def build_smart_analysis(base_prompt, media_files, has_img):
         )
     return base_prompt + "\n".join(extra)
 
-def build_smart_sys_prompt(intent, sk, media_files, has_img, hist):
+def build_smart_sys_prompt(intent, sk, media_files, has_img, hist, msg):
     if intent == "music":
         base = f"{BRAIN_PROMPT}\nTác vụ: music. Điệu: {STYLES.get(sk, 'Tự động')}."
     elif intent in ("image_edit", "video"):
@@ -485,9 +492,10 @@ def build_smart_sys_prompt(intent, sk, media_files, has_img, hist):
     else:
         base = SMART_BRAIN_PROMPT
         turns = LAST_MEM.get("turns") or []
-        if not hist and turns:
+        is_greet = (msg or "").lower().strip() in GREETINGS
+        if not hist and is_greet and turns:
             mem_txt = "\n".join(f"- Người dùng: {t['u']}\n- AI: {t['a']}" for t in turns[-3:])
-            base += f"\n\n[CÔNG VIỆC ĐANG BÀN TRƯỚC ĐÓ (dùng để tiếp tục nếu người dùng Alo/hỏi nối tiếp)]:\n{mem_txt}"
+            base += f"\n\n[CÔNG VIỆC ĐANG BÀN TRƯỚC ĐÓ (hỏi tiếp tục đúng việc này)]:\n{mem_txt}"
     return build_smart_analysis(base, media_files, has_img)
 # === SMART_BRAIN_END ===
 
@@ -505,7 +513,7 @@ def api_chat_stream():
     intent = smart_intent_of(msg, mode, bool(img), media_files)
     ck = os.getenv("AI_CHAT_KEY", "").strip()
     fk = os.getenv("FAL_API_KEY", "").strip()
-    sys_p = build_smart_sys_prompt(intent, sk, media_files, bool(img), hist)
+    sys_p = build_smart_sys_prompt(intent, sk, media_files, bool(img), hist, msg)
     def gen():
         yield sse({"intent": intent})
         got, err, full = False, "", ""
