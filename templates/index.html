@@ -185,7 +185,7 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
       const ctxt = card ? (card.innerText||card.textContent||"").trim() : "";
       const isM = /^MUSIC\b/i.test(ctxt);
       if(isM && (t==="Copy lời"||t==="Copy bài hát")){
-        btn.textContent = "Copy bài hát";
+        if(btn.textContent!=="Copy bài hát")btn.textContent="Copy bài hát";
         btn.style.display = "";
       } else if(isM && t==="Mở Suno"){
         btn.style.display = "";
@@ -203,7 +203,6 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
       if(row) row.style.display = Array.from(row.children).some(c=>c.style.display!=="none") ? "" : "none";
     });
   }
-  new MutationObserver(cleanBtns).observe(document.body,{childList:true,subtree:true,characterData:true});
   setInterval(cleanBtns,300);
 })();
 </script>
