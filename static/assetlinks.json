@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.onrender.ai_phdam_studio.twa",
+      "sha256_cert_fingerprints": [
+        "0E:84:B5:A9:F5:1C:23:D3:D6:95:4B:07:41:54:93:9B:07:48:AF:34:FF:32:99:2F:BC:25:D9:ED:03:B8:50:F3"
+      ]
+    }
+  }
+]
