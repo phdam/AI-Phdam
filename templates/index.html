@@ -126,34 +126,67 @@ async function send(){
 bSend.onclick=send;
 if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
 </script><script async src="https://cdn.jsdelivr.net/npm/soundfont-player/dist/soundfont-player.min.js"></script>
-<!-- CLEAN_BTNS_START -->
+<!-- CLEAN_UI_START -->
 <script>
 (function(){
+  window._sessionFiles = window._sessionFiles || [];
+  const fIn = document.getElementById("fIn"), mStrip = document.getElementById("mStrip");
+  function ico(m){ return (m||"").startsWith("audio/")?"🎵":((m||"").startsWith("video/")?"🎬":"🖼️"); }
+  function render(st){
+    if(!mStrip) return;
+    const a = window._sessionFiles;
+    if(!a.length && !st){ mStrip.style.display="none"; mStrip.innerHTML=""; return; }
+    mStrip.style.display="flex";
+    let h = a.map((f,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:12px;max-width:190px"><span>${ico(f.mime)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span><b data-rm="${i}" style="cursor:pointer;margin-left:3px;color:#dc2626">×</b></span>`).join("");
+    if(a.length) h += `<button type="button" id="mClearAll" style="border:none;background:#fee2e2;color:#b91c1c;padding:3px 8px;border-radius:10px;font-size:.74rem">🧹 Xóa tệp</button>`;
+    if(st) h += `<span style="color:#b45309;font-weight:600">${st}</span>`;
+    mStrip.innerHTML = h;
+    mStrip.querySelectorAll("[data-rm]").forEach(el=>el.onclick=()=>{ window._sessionFiles.splice(Number(el.dataset.rm),1); render(); });
+    const cb = document.getElementById("mClearAll");
+    if(cb) cb.onclick=()=>{ window._sessionFiles=[]; if(typeof imgData!=="undefined") imgData=""; if(typeof pbar!=="undefined") pbar.classList.remove("show"); render(); };
+  }
+  if(fIn){
+    fIn.onchange = async (e)=>{
+      const pk = Array.from(e.target.files||[]); if(!pk.length) return;
+      if(pk.length===1 && pk[0].type.startsWith("image/")){
+        const r=new FileReader(); r.onload=()=>{ const im=new Image(); im.onload=()=>{ const mx=1600; let w=im.width,h=im.height; if(w>mx||h>mx){if(w>h){h=Math.round(h*mx/w);w=mx}else{w=Math.round(w*mx/h);h=mx}} const c=document.createElement("canvas"); c.width=w;c.height=h;c.getContext("2d").drawImage(im,0,0,w,h); if(typeof imgData!=="undefined") imgData=c.toDataURL("image/jpeg",.85); }; im.src=r.result; }; r.readAsDataURL(pk[0]);
+      }
+      const fd=new FormData(); pk.forEach(f=>fd.append("files",f));
+      render("⏳ Đang tải "+pk.length+" tệp...");
+      try{
+        const d = await (await fetch("/api/upload-media",{method:"POST",body:fd})).json();
+        if(d.status==="ok" && Array.isArray(d.files)){ window._sessionFiles=window._sessionFiles.concat(d.files); render(); }
+        else render("❌ "+(d.message||"Lỗi tải"));
+      }catch(err){ render("❌ "+err.message); }
+      fIn.value="";
+    };
+  }
+  const of = window.fetch.bind(window);
+  window.fetch = function(u, init){
+    if(typeof u==="string" && u.includes("/api/chat-stream") && init && typeof init.body==="string"){
+      try{
+        const o = JSON.parse(init.body);
+        if(window._sessionFiles && window._sessionFiles.length){ o.media_files=window._sessionFiles; if(!o.message) o.message="Phân tích và xâu chuỗi chi tiết các tệp đính kèm."; init=Object.assign({},init,{body:JSON.stringify(o)}); }
+      }catch(_){}
+    }
+    return of(u, init);
+  };
   function cleanBtns(){
     document.querySelectorAll("button").forEach(btn=>{
-      const t = (btn.textContent || "").trim();
+      const t = (btn.textContent||"").trim();
       if(!["Copy lời","Mở Suno","Đọc lời","Copy bài hát"].includes(t)) return;
-      const row = btn.parentElement;
-      const card = (row && row.parentElement) || row;
+      const row = btn.parentElement, card = (row && row.parentElement) || row;
       const head = card && card.firstElementChild ? card.firstElementChild.textContent : "";
-      const isMusic = /\bMUSIC\b/i.test((head || "").trim());
-      if(isMusic && (t === "Copy lời" || t === "Copy bài hát")){
-        btn.textContent = "Copy bài hát";
-        btn.style.display = "";
-      } else if(isMusic && t === "Mở Suno"){
-        btn.style.display = "";
-      } else {
-        btn.style.display = "none";
-      }
-      if(row){
-        const hasVisible = Array.from(row.children).some(c => c.style.display !== "none");
-        row.style.display = hasVisible ? "" : "none";
-      }
+      const isM = /\bMUSIC\b/i.test((head||"").trim());
+      if(isM && (t==="Copy lời"||t==="Copy bài hát")){ btn.textContent="Copy bài hát"; btn.style.display=""; }
+      else if(isM && t==="Mở Suno"){ btn.style.display=""; }
+      else { btn.style.display="none"; }
+      if(row) row.style.display = Array.from(row.children).some(c=>c.style.display!=="none") ? "" : "none";
     });
   }
-  new MutationObserver(cleanBtns).observe(document.body, {childList: true, subtree: true, characterData: true});
-  setInterval(cleanBtns, 300);
+  new MutationObserver(cleanBtns).observe(document.body,{childList:true,subtree:true,characterData:true});
+  setInterval(cleanBtns,300);
 })();
 </script>
-<!-- CLEAN_BTNS_END -->
+<!-- CLEAN_UI_END -->
 </body></html>
