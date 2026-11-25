@@ -125,4 +125,35 @@ async function send(){
 }
 bSend.onclick=send;
 if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
-</script><script async src="https://cdn.jsdelivr.net/npm/soundfont-player/dist/soundfont-player.min.js"></script></body></html>
+</script><script async src="https://cdn.jsdelivr.net/npm/soundfont-player/dist/soundfont-player.min.js"></script>
+<!-- CLEAN_BTNS_START -->
+<script>
+(function(){
+  function cleanBtns(){
+    document.querySelectorAll("button").forEach(btn=>{
+      const t = (btn.textContent || "").trim();
+      if(!["Copy lời","Mở Suno","Đọc lời","Copy bài hát"].includes(t)) return;
+      const row = btn.parentElement;
+      const card = (row && row.parentElement) || row;
+      const head = card && card.firstElementChild ? card.firstElementChild.textContent : "";
+      const isMusic = /\bMUSIC\b/i.test((head || "").trim());
+      if(isMusic && (t === "Copy lời" || t === "Copy bài hát")){
+        btn.textContent = "Copy bài hát";
+        btn.style.display = "";
+      } else if(isMusic && t === "Mở Suno"){
+        btn.style.display = "";
+      } else {
+        btn.style.display = "none";
+      }
+      if(row){
+        const hasVisible = Array.from(row.children).some(c => c.style.display !== "none");
+        row.style.display = hasVisible ? "" : "none";
+      }
+    });
+  }
+  new MutationObserver(cleanBtns).observe(document.body, {childList: true, subtree: true, characterData: true});
+  setInterval(cleanBtns, 300);
+})();
+</script>
+<!-- CLEAN_BTNS_END -->
+</body></html>

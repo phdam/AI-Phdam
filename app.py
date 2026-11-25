@@ -117,7 +117,7 @@ def stream_gemini(key, sys_p, msg, hist, img):
         parts.append({"inline_data": {"mime_type": h.split(";")[0][5:], "data": b64}})
     ht = "\n".join(f"{'User' if m.get('role')=='user' else 'AI'}: {m.get('text','')[:150]}" for m in (hist or [])[-2:])
     parts.append({"text": f"{ht}\nUser: {msg}" if ht else msg})
-    body = {"system_instruction": {"parts": [{"text": sys_p}]}, "contents": [{"role": "user", "parts": parts}], "generationConfig": {"maxOutputTokens": 700}}
+    body = {"system_instruction": {"parts": [{"text": sys_p}]}, "contents": [{"role": "user", "parts": parts}], "generationConfig": {"maxOutputTokens": 8192}}
     code = 0
     for mdl in ("gemini-3.5-flash-lite", "gemini-3.6-flash"):
         try:
@@ -222,15 +222,228 @@ def api_config():
     return jsonify({"status": "ok", "message": "Đã lưu Key!", "has_key": True})
 
 # === SMART_BRAIN_START ===
-SMART_BRAIN_PROMPT = """Bạn là AI-Phdam — trợ lý AI thông minh, thực tế và có tư duy phân tích sắc bén.
-NGUYÊN TẮC CỐT LÕI KHI TRẢ LỜI:
-1. Nhận diện chính xác chủ đề và mục đích câu hỏi của người dùng (lập trình/code, kỹ thuật/điện tử, kiến thức khoa học/đời sống, lập kế hoạch/ý tưởng sản phẩm, hay phân tích tệp đính kèm).
-2. Bám sát 100% nội dung người dùng đang hỏi: TUYỆT ĐỐI KHÔNG tự ý chuyển sang sáng tác nhạc, viết lời bài hát, thơ hay kịch bản phim/âm thanh nếu người dùng không yêu cầu.
-3. Định hướng trả lời chất lượng cao theo từng lĩnh vực:
-   - Với Lập trình / Sửa lỗi kỹ thuật: đi thẳng vào nguyên nhân gốc rễ, giải pháp từng bước rõ ràng, đưa code sạch chạy được ngay và lưu ý lỗi dễ gặp.
-   - Với Ý tưởng / Tư duy / Kinh doanh: phân tích tính khả thi, ưu nhược điểm, gợi ý phương án tối ưu và các bước thực hiện cụ thể.
-   - Với Kiến thức / Hỏi đáp chung: giải thích mạch lạc, chính xác, ví dụ sát thực tế, ngắn gọn đúng trọng tâm.
-4. Trả lời bằng tiếng Việt tự nhiên, thẳng thắn; nếu thiếu dữ liệu hoặc chưa chắc chắn thì nói rõ phần cần bổ sung, không đoán mò."""
+
+import mimetypes as _mt, uuid as _uuid, time as _time
+UPLOAD_TMP = os.path.expanduser("~/AI-Phdam/_tmp_uploads")
+os.makedirs(UPLOAD_TMP, exist_ok=True)
+LOCAL_MEDIA_CACHE = {}
+MIME_FALLBACK = {
+    ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".wav": "audio/wav",
+    ".ogg": "audio/ogg", ".aac": "audio/aac", ".flac": "audio/flac",
+    ".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm",
+    ".mkv": "video/x-matroska", ".3gp": "video/3gpp",
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"
+}
+
+def _guess_mime(filename, raw_mime):
+    ext = os.path.splitext(filename or "")[1].lower()
+    if ext in MIME_FALLBACK:
+        return MIME_FALLBACK[ext]
+    if raw_mime and raw_mime != "application/octet-stream":
+        return raw_mime
+    g, _ = _mt.guess_type(filename or "")
+    return g or "application/octet-stream"
+
+def stream_gemini_multimodal(key, sys_p, msg, hist, img, media_files):
+    contents = []
+    for h in (hist or [])[-14:]:
+        if not isinstance(h, dict):
+            continue
+        role = "model" if h.get("role") in ("assistant", "model") else "user"
+        ht = (h.get("text") or h.get("content") or "").strip()
+        if not ht:
+            continue
+        if contents and contents[-1]["role"] == role:
+            contents[-1]["parts"].append({"text": ht})
+        else:
+            contents.append({"role": role, "parts": [{"text": ht}]})
+    parts = []
+    for idx, mf in enumerate(media_files or [], 1):
+        m_name = mf.get("name") or f"file_{idx}"
+        m_mime = mf.get("mime") or "application/octet-stream"
+        parts.append({"text": f"[Tệp đính kèm #{idx}: {m_name} ({m_mime})]"})
+        if mf.get("uri"):
+            parts.append({"file_data": {"mime_type": m_mime, "file_uri": mf["uri"]}})
+        elif mf.get("local_id") and mf["local_id"] in LOCAL_MEDIA_CACHE:
+            lp = LOCAL_MEDIA_CACHE[mf["local_id"]]
+            if os.path.exists(lp):
+                with open(lp, "rb") as fp:
+                    b64 = base64.b64encode(fp.read()).decode("ascii")
+                parts.append({"inline_data": {"mime_type": m_mime, "data": b64}})
+    if img and isinstance(img, str) and "," in img and not media_files:
+        hdr, b64_img = img.split(",", 1)
+        im_mime = hdr.split(";")[0].replace("data:", "") or "image/jpeg"
+        parts.append({"inline_data": {"mime_type": im_mime, "data": b64_img}})
+    parts.append({"text": msg or "Hãy phân tích chi tiết các tệp đính kèm và xâu chuỗi mối liên kết giữa chúng."})
+    if contents and contents[-1]["role"] == "user":
+        contents[-1]["parts"].extend(parts)
+    else:
+        contents.append({"role": "user", "parts": parts})
+    body = {
+        "systemInstruction": {"parts": [{"text": sys_p}]},
+        "contents": contents,
+        "generationConfig": {"maxOutputTokens": 8192}
+    }
+    last_code, last_err = 0, ""
+    for mdl in ("gemini-3.5-flash-lite", "gemini-3.6-flash"):
+        try:
+            r = SESSION.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:streamGenerateContent?alt=sse",
+                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                json=body, stream=True, timeout=(10, 120)
+            )
+            last_code = r.status_code
+            if last_code in (400, 401, 403):
+                try:
+                    detail = r.json().get("error", {}).get("message", "")[:120]
+                except Exception:
+                    detail = ""
+                yield f"__ERR__:Key lỗi ({last_code}) {detail}".strip()
+                return
+            if last_code != 200:
+                last_err = r.text[:120]
+                continue
+            got = False
+            for raw in r.iter_lines(decode_unicode=True):
+                if not raw or not raw.startswith("data:"):
+                    continue
+                pl = raw[5:].strip()
+                if pl == "[DONE]":
+                    break
+                try:
+                    obj = json.loads(pl)
+                    for c in (obj.get("candidates") or []):
+                        for p in ((c.get("content") or {}).get("parts") or []):
+                            if p.get("thought"):
+                                continue
+                            t = p.get("text")
+                            if t:
+                                got = True
+                                yield t
+                except Exception:
+                    pass
+            if got:
+                return
+        except Exception as e:
+            last_err = str(e)
+    yield f"__ERR__:Gemini HTTP {last_code} {last_err}".strip()
+
+@app.route("/api/upload-media", methods=["POST"])
+def api_upload_media():
+    now = _time.time()
+    for fn in os.listdir(UPLOAD_TMP):
+        p = os.path.join(UPLOAD_TMP, fn)
+        try:
+            if os.path.isfile(p) and now - os.path.getmtime(p) > 7200:
+                os.remove(p)
+        except Exception:
+            pass
+    ck = os.getenv("AI_CHAT_KEY", "").strip()
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify({"status": "error", "message": "Chưa chọn tệp nào!"}), 400
+    if not ck:
+        return jsonify({"status": "error", "message": "Chưa nhập Gemini Key trong Menu!"}), 400
+    uploaded = []
+    for f in files:
+        orig_name = f.filename or f"media_{_uuid.uuid4().hex[:6]}"
+        mime = _guess_mime(orig_name, f.mimetype)
+        lid = _uuid.uuid4().hex[:12]
+        tmp_path = os.path.join(UPLOAD_TMP, f"{lid}_{os.path.basename(orig_name)}")
+        f.save(tmp_path)
+        size = os.path.getsize(tmp_path)
+        uri, gname = "", ""
+        if ck.startswith("AIza"):
+            try:
+                r1 = SESSION.post(
+                    "https://generativelanguage.googleapis.com/upload/v1beta/files",
+                    headers={
+                        "x-goog-api-key": ck,
+                        "X-Goog-Upload-Protocol": "resumable",
+                        "X-Goog-Upload-Command": "start",
+                        "X-Goog-Upload-Header-Content-Length": str(size),
+                        "X-Goog-Upload-Header-Content-Type": mime,
+                        "Content-Type": "application/json",
+                    },
+                    json={"file": {"display_name": orig_name}},
+                    timeout=20
+                )
+                up_url = r1.headers.get("x-goog-upload-url") or r1.headers.get("X-Goog-Upload-URL")
+                if r1.status_code == 200 and up_url:
+                    with open(tmp_path, "rb") as fp:
+                        r2 = SESSION.post(
+                            up_url,
+                            headers={
+                                "Content-Length": str(size),
+                                "X-Goog-Upload-Offset": "0",
+                                "X-Goog-Upload-Command": "upload, finalize",
+                            },
+                            data=fp, timeout=(15, 300)
+                        )
+                    fobj = (r2.json() or {}).get("file") or {}
+                    gname = fobj.get("name", "")
+                    uri = fobj.get("uri", "")
+                    state = fobj.get("state", "ACTIVE")
+                    for _ in range(45):
+                        if state != "PROCESSING" or not gname:
+                            break
+                        _time.sleep(1.5)
+                        rg = SESSION.get(
+                            f"https://generativelanguage.googleapis.com/v1beta/{gname}",
+                            headers={"x-goog-api-key": ck}, timeout=15
+                        ).json()
+                        state = rg.get("state", "ACTIVE")
+                        uri = rg.get("uri") or uri
+                    if state == "FAILED":
+                        uri = ""
+            except Exception:
+                uri = ""
+        if uri:
+            try: os.remove(tmp_path)
+            except Exception: pass
+            uploaded.append({"name": orig_name, "mime": mime, "uri": uri, "gname": gname})
+        elif size <= 15 * 1024 * 1024:
+            LOCAL_MEDIA_CACHE[lid] = tmp_path
+            uploaded.append({"name": orig_name, "mime": mime, "local_id": lid})
+        else:
+            try: os.remove(tmp_path)
+            except Exception: pass
+            return jsonify({"status": "error", "message": f"Không tải được {orig_name} (cần Key AIza... cho video >15MB)."}), 400
+    return jsonify({"status": "ok", "files": uploaded})
+
+MEM_PATH = os.path.expanduser("~/AI-Phdam/brain_memory.json")
+def _load_mem():
+    try:
+        if os.path.exists(MEM_PATH):
+            return json.load(open(MEM_PATH, encoding="utf-8"))
+    except Exception:
+        pass
+    return {"turns": []}
+
+LAST_MEM = _load_mem()
+
+def _save_mem(u_msg, a_msg):
+    um = (u_msg or "").strip()
+    am = (a_msg or "").strip()
+    if not um or not am:
+        return
+    if um.lower() in ("alo", "alô", "hi", "hello", "chào", "ê", "ok", "test"):
+        return
+    LAST_MEM.setdefault("turns", []).append({"u": um[:400], "a": am[:600]})
+    LAST_MEM["turns"] = LAST_MEM["turns"][-5:]
+    try:
+        with open(MEM_PATH, "w", encoding="utf-8") as f:
+            json.dump(LAST_MEM, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+SMART_BRAIN_PROMPT = """Bạn là AI-Phdam — trợ lý AI riêng của người dùng, nói chuyện tự nhiên, thông minh và bám sát công việc.
+NGUYÊN TẮC BẮT BUỘC:
+1. Khi người dùng chỉ chào ngắn như "Alo", "Hi", "Hello":
+   - Nếu trong lịch sử trò chuyện hoặc ngữ cảnh gần nhất ĐÃ CÓ công việc đang bàn dở: chỉ chào ĐÚNG 1 câu ngắn và nhắc tiếp tục ngay nội dung công việc đó (VD: "Alo, mình nghe đây! Mình làm tiếp phần lưu video từ camera vào điện thoại nhé?").
+   - Nếu trước đó CHƯA có công việc gì: chỉ đáp ĐÚNG 1 câu chào ngắn gọn thân thiện (VD: "Alo, mình nghe đây! Bạn cần làm gì?"). TUYỆT ĐỐI KHÔNG liệt kê danh sách các lĩnh vực kiểu "Lập trình / Kỹ thuật / Khoa học...".
+2. Khi người dùng hỏi về vấn đề cụ thể (lập trình, camera, điện tử, kỹ thuật, ý tưởng, kiến thức...): đi thẳng vào trọng tâm, phân tích rõ ràng, đưa phương án/code thực tế, không rào đón dài dòng.
+3. TUYỆT ĐỐI KHÔNG tự ý chuyển sang sáng tác nhạc, thơ hay kịch bản nếu người dùng không yêu cầu sáng tác."""
 
 def smart_intent_of(msg, mode, has_img, media_files):
     m = (msg or "").lower().strip()
@@ -255,28 +468,26 @@ def build_smart_analysis(base_prompt, media_files, has_img):
     extra = ["\n[QUY TẮC PHÂN TÍCH ĐA PHƯƠNG TIỆN]"]
     if any(m.startswith("audio/") for m in mimes):
         extra.append(
-            "- Với âm thanh/nhạc (MP3/Audio): Nghe kỹ toàn bộ file và trình bày rõ: "
-            "(1) Các nhạc cụ chính và phụ (trống, bass, guitar, piano, synth, sáo...), "
-            "(2) Giai điệu, nhịp điệu/tempo (ước lượng BPM), tone/cảm xúc, thể loại, "
-            "(3) Cấu trúc bài theo mốc thời gian MM:SS (Intro, Verse, Điệp khúc, Solo, Outro)."
+            "- Với âm thanh/nhạc (MP3/Audio): Nghe kỹ toàn bộ file và nêu rõ: "
+            "(1) Nhạc cụ chính/phụ, (2) Giai điệu, nhịp độ/BPM, cảm xúc, thể loại, (3) Cấu trúc theo mốc MM:SS."
         )
     if any(m.startswith(("image/", "video/")) for m in mimes) or len(mimes) > 1:
         extra.append(
-            "- Với nhiều Ảnh / Video liên kết kỹ thuật: "
-            "(1) Trích xuất chi tiết từng [Tệp đính kèm #i]: đọc chính xác số dây, nhãn terminal, màu dây, mã thiết bị và mốc MM:SS trong video. "
-            "(2) Xâu chuỗi & đối chiếu chéo các điểm trùng khớp giữa các ảnh và video. "
-            "(3) Đưa ra kết luận rõ ràng: đầu dây/chi tiết đi từ đâu -> tới thiết bị nào -> nhiệm vụ gì. "
-            "Nếu bị khuất góc quay, mờ chữ hoặc chưa đủ bằng chứng, PHẢI nói rõ thiếu ở đâu để chụp bổ sung, tuyệt đối không đoán mò."
+            "- Với nhiều Ảnh/Video kỹ thuật: Trích xuất nhãn số, màu dây, thiết bị ở từng tệp -> xâu chuỗi đối chiếu chéo -> kết luận rõ ràng; thiếu góc quay thì báo rõ, không đoán mò."
         )
     return base_prompt + "\n".join(extra)
 
-def build_smart_sys_prompt(intent, sk, media_files, has_img):
+def build_smart_sys_prompt(intent, sk, media_files, has_img, hist):
     if intent == "music":
         base = f"{BRAIN_PROMPT}\nTác vụ: music. Điệu: {STYLES.get(sk, 'Tự động')}."
     elif intent in ("image_edit", "video"):
         base = f"{BRAIN_PROMPT}\nTác vụ: {intent}."
     else:
         base = SMART_BRAIN_PROMPT
+        turns = LAST_MEM.get("turns") or []
+        if not hist and turns:
+            mem_txt = "\n".join(f"- Người dùng: {t['u']}\n- AI: {t['a']}" for t in turns[-3:])
+            base += f"\n\n[CÔNG VIỆC ĐANG BÀN TRƯỚC ĐÓ (dùng để tiếp tục nếu người dùng Alo/hỏi nối tiếp)]:\n{mem_txt}"
     return build_smart_analysis(base, media_files, has_img)
 # === SMART_BRAIN_END ===
 
@@ -294,13 +505,12 @@ def api_chat_stream():
     intent = smart_intent_of(msg, mode, bool(img), media_files)
     ck = os.getenv("AI_CHAT_KEY", "").strip()
     fk = os.getenv("FAL_API_KEY", "").strip()
-    sys_p = build_smart_sys_prompt(intent, sk, media_files, bool(img))
+    sys_p = build_smart_sys_prompt(intent, sk, media_files, bool(img), hist)
     def gen():
         yield sse({"intent": intent})
         got, err, full = False, "", ""
         if ck.startswith(("AIza", "AQ.")):
-            it = stream_gemini_multimodal(ck, sys_p, msg, hist, img, media_files) if "stream_gemini_multimodal" in globals() else stream_gemini(ck, sys_p, msg or "Phân tích ảnh", hist, img)
-            for c in it:
+            for c in stream_gemini_multimodal(ck, sys_p, msg, hist, img, media_files):
                 if c.startswith("__ERR__:"):
                     err = c[8:]
                     break
@@ -313,9 +523,11 @@ def api_chat_stream():
                 if err:
                     off = f"[Key lỗi ({err}) -> Chế độ Độc Lập]\n\n" + off
             else:
-                off = f"[Chưa kết nối được AI ({err or 'Chưa có Gemini Key'})]\nHãy vào ≡ Menu kiểm tra lại mã Key Gemini để chat thông minh."
+                off = f"[Chưa kết nối được AI ({err or 'Chưa có Gemini Key'})]\nHãy vào ≡ Menu kiểm tra lại mã Key Gemini."
             full = off
             yield sse({"chunk": off})
+        if got and intent == "chat":
+            _save_mem(msg, full)
         out = {
             "done": True,
             "intent": intent,
