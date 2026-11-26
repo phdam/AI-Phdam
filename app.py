@@ -266,9 +266,9 @@ def stream_gemini_mm(key, sys_p, msg, hist, img, media_files):
     else: contents.append({"role": "user", "parts": parts})
     body = {"systemInstruction": {"parts": [{"text": sys_p}]}, "contents": contents, "generationConfig": {"maxOutputTokens": 8192, "temperature": 0.4}}
     lc, le = 0, ""
-    for mdl in ("gemini-3.6-flash", "gemini-3.5-flash-lite"):
+    for mdl in ("gemini-3.5-flash-lite", "gemini-3.6-flash"):
         try:
-            r = SESSION.post(f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:streamGenerateContent?alt=sse", headers={"x-goog-api-key": key, "Content-Type": "application/json"}, json=body, stream=True, timeout=(10, 120))
+            r = SESSION.post(f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:streamGenerateContent?alt=sse", headers={"x-goog-api-key": key, "Content-Type": "application/json"}, json=body, stream=True, timeout=(6, 45))
             r.encoding = "utf-8"; lc = r.status_code
             if lc in (401, 403): yield f"__ERR__:Key lỗi ({lc})"; return
             if lc != 200:
@@ -276,17 +276,21 @@ def stream_gemini_mm(key, sys_p, msg, hist, img, media_files):
                 if lc == 400 and "api key" in le.lower(): yield "__ERR__:Key lỗi (400)"; return
                 continue
             got = False
-            for rb in r.iter_lines(decode_unicode=False):
+            for rb in r.iter_lines(chunk_size=1, decode_unicode=False):
                 if not rb: continue
                 raw = rb.decode("utf-8", errors="replace")
                 if not raw.startswith("data:"): continue
                 pl = raw[5:].strip()
                 if pl == "[DONE]": break
+                done_sse = False
                 try:
-                    for c in (json.loads(pl).get("candidates") or []):
+                    cands = json.loads(pl).get("candidates") or []
+                    for c in cands:
                         for p in ((c.get("content") or {}).get("parts") or []):
                             if not p.get("thought") and p.get("text"): got = True; yield p["text"]
+                    if got and any(c.get("finishReason") for c in cands): done_sse = True
                 except Exception: pass
+                if done_sse: break
             if got: return
         except Exception as e: le = str(e)
     yield f"__ERR__:Gemini HTTP {lc} {le}".strip()
@@ -363,7 +367,7 @@ def api_chat_stream():
             if mr: out["media"] = mr
             elif me: out["media_note"] = me
         yield sse(out)
-    return Response(stream_with_context(gen()), mimetype="text/event-stream")
+    return Response(stream_with_context(gen()), mimetype="text/event-stream", headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
 @app.route("/api/media-status", methods=["POST"])
 def api_media_status():
     d = request.get_json(silent=True) or {}
