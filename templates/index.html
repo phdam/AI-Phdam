@@ -38,7 +38,7 @@
     <div id="cfgSt" style="font-size:.78rem;margin-top:6px;color:#15803d"></div>
   </div>
   <div class="ds"><h4>Icon ứng dụng</h4><input type="file" id="icIn" accept="image/*" style="position:fixed;top:-999px;opacity:0"><label class="ibtn" for="icIn" style="display:block;text-align:center">Chọn ảnh làm Icon App</label><div id="icSt" style="font-size:.76rem;color:#15803d;margin-top:5px"></div></div>
-  <div class="ds"><h4>Lưu trữ Google Drive</h4><a class="ibtn" href="/api/export-installer" download="CaiDat-AI-Phdam.txt" style="display:block;text-align:center;text-decoration:none">Tải File Cài Đặt (Lưu Drive)</a></div>
+  <div class="ds" id="histBox"><h4>Nhật ký trò chuyện</h4><div id="histList" style="max-height:210px;overflow:auto;display:flex;flex-direction:column;gap:6px"></div></div><div class="ds"><h4>Lưu trữ Google Drive</h4><a class="ibtn" href="/api/export-installer" download="CaiDat-AI-Phdam.txt" style="display:block;text-align:center;text-decoration:none">Tải File Cài Đặt (Lưu Drive)</a></div>
 </aside>
 <div class="app">
   <header class="top"><button class="ibtn" id="bMenu">&#9776; Menu</button><div class="brand"><span class="dot {{ 'on' if has_key else '' }}" id="aiDot"></span>AI-Phdam Studio</div><button class="ibtn" id="bNew">+ Mới</button></header>
@@ -129,10 +129,52 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
 <!-- CLEAN_UI_START -->
 <script>
 (function(){
+  const LKEY = "phdam_logs_v1";
   window._sessionFiles = window._sessionFiles || [];
+  window._activeTurns = window._activeTurns || [];
+  window._curLogId = window._curLogId || null;
   const fIn = document.getElementById("fIn"), mStrip = document.getElementById("mStrip");
+  const feed = document.getElementById("feed"), hList = document.getElementById("histList");
+
+  function escH(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function getLogs(){ try{ return JSON.parse(localStorage.getItem(LKEY)||"[]"); }catch(_){ return []; } }
+  function setLogs(a){ try{ localStorage.setItem(LKEY, JSON.stringify(a.slice(0,30))); }catch(_){} }
+
+  function renderLogs(){
+    if(!hList) return;
+    const logs = getLogs();
+    if(!logs.length){ hList.innerHTML = '<div style="font-size:.78rem;color:#64748b">Chưa có nhật ký nào.</div>'; return; }
+    hList.innerHTML = logs.map((lg, i)=>(
+      `<div style="display:flex;align-items:center;gap:4px;background:#f1f5f9;padding:6px 8px;border-radius:8px">`+
+      `<span data-open="${i}" style="flex:1;font-size:.8rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(lg.title)}</span>`+
+      `<b data-del="${i}" style="cursor:pointer;color:#dc2626;padding:0 4px">×</b></div>`
+    )).join("");
+    hList.querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>{
+      const lg = getLogs()[Number(el.dataset.open)]; if(!lg) return;
+      window._curLogId = lg.id;
+      window._activeTurns = (lg.turns||[]).slice();
+      if(feed){
+        feed.innerHTML = lg.turns.map(t=>{
+          if(t.role==="user") return `<div style="display:flex;justify-content:flex-end;margin:6px 0"><div style="background:#2563eb;color:#fff;padding:10px 14px;border-radius:14px;max-width:85%;white-space:pre-wrap">${escH(t.text)}</div></div>`;
+          const tag = (t.intent||"chat").toUpperCase();
+          return `<div style="display:flex;justify-content:flex-start;margin:6px 0"><div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:14px;max-width:90%;white-space:pre-wrap"><div style="display:inline-block;background:#e0e7ff;color:#1d4ed8;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:6px">${escH(tag)}</div><div>${escH(t.text)}</div></div></div>`;
+        }).join("");
+        feed.scrollTop = feed.scrollHeight;
+      }
+      const xBtn = Array.from(document.querySelectorAll("button")).find(b=>(b.textContent||"").trim()==="×" || (b.textContent||"").trim()==="✕");
+      if(xBtn) xBtn.click();
+    });
+    hList.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>{
+      const a = getLogs(); a.splice(Number(el.dataset.del), 1); setLogs(a); renderLogs();
+    });
+  }
+  renderLogs();
+
+  const newBtn = Array.from(document.querySelectorAll("button")).find(b=>(b.textContent||"").includes("+ Mới"));
+  if(newBtn) newBtn.addEventListener("click", ()=>{ window._curLogId=null; window._activeTurns=[]; });
+
   function ico(m){ return (m||"").startsWith("audio/")?"🎵":((m||"").startsWith("video/")?"🎬":"🖼️"); }
-  function render(st){
+  function renderStrip(st){
     if(!mStrip) return;
     const a = window._sessionFiles;
     if(!a.length && !st){ mStrip.style.display="none"; mStrip.innerHTML=""; return; }
@@ -141,9 +183,9 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
     if(a.length) h += `<button type="button" id="mClearAll" style="border:none;background:#fee2e2;color:#b91c1c;padding:3px 8px;border-radius:10px;font-size:.74rem">🧹 Xóa tệp</button>`;
     if(st) h += `<span style="color:#b45309;font-weight:600">${st}</span>`;
     mStrip.innerHTML = h;
-    mStrip.querySelectorAll("[data-rm]").forEach(el=>el.onclick=()=>{ window._sessionFiles.splice(Number(el.dataset.rm),1); render(); });
+    mStrip.querySelectorAll("[data-rm]").forEach(el=>el.onclick=()=>{ window._sessionFiles.splice(Number(el.dataset.rm),1); renderStrip(); });
     const cb = document.getElementById("mClearAll");
-    if(cb) cb.onclick=()=>{ window._sessionFiles=[]; if(typeof imgData!=="undefined") imgData=""; if(typeof pbar!=="undefined") pbar.classList.remove("show"); render(); };
+    if(cb) cb.onclick=()=>{ window._sessionFiles=[]; if(typeof imgData!=="undefined") imgData=""; if(typeof pbar!=="undefined") pbar.classList.remove("show"); renderStrip(); };
   }
   if(fIn){
     fIn.onchange = async (e)=>{
@@ -152,25 +194,63 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
         const r=new FileReader(); r.onload=()=>{ const im=new Image(); im.onload=()=>{ const mx=1600; let w=im.width,h=im.height; if(w>mx||h>mx){if(w>h){h=Math.round(h*mx/w);w=mx}else{w=Math.round(w*mx/h);h=mx}} const c=document.createElement("canvas"); c.width=w;c.height=h;c.getContext("2d").drawImage(im,0,0,w,h); if(typeof imgData!=="undefined") imgData=c.toDataURL("image/jpeg",.85); }; im.src=r.result; }; r.readAsDataURL(pk[0]);
       }
       const fd=new FormData(); pk.forEach(f=>fd.append("files",f));
-      render("⏳ Đang tải "+pk.length+" tệp...");
+      renderStrip("⏳ Đang tải "+pk.length+" tệp...");
       try{
         const d = await (await fetch("/api/upload-media",{method:"POST",body:fd})).json();
-        if(d.status==="ok" && Array.isArray(d.files)){ window._sessionFiles=window._sessionFiles.concat(d.files); render(); }
-        else render("❌ "+(d.message||"Lỗi tải"));
-      }catch(err){ render("❌ "+err.message); }
+        if(d.status==="ok" && Array.isArray(d.files)){ window._sessionFiles=window._sessionFiles.concat(d.files); renderStrip(); }
+        else renderStrip("❌ "+(d.message||"Lỗi tải"));
+      }catch(err){ renderStrip("❌ "+err.message); }
       fIn.value="";
     };
   }
+
   const of = window.fetch.bind(window);
-  window.fetch = function(u, init){
-    if(typeof u==="string" && u.includes("/api/chat-stream") && init && typeof init.body==="string"){
+  window.fetch = async function(u, init){
+    let userMsg = "";
+    const isChat = typeof u==="string" && u.includes("/api/chat-stream") && init && typeof init.body==="string";
+    if(isChat){
       try{
         const o = JSON.parse(init.body);
-        if(window._sessionFiles && window._sessionFiles.length){ o.media_files=window._sessionFiles; if(!o.message) o.message="Phân tích và xâu chuỗi chi tiết các tệp đính kèm."; init=Object.assign({},init,{body:JSON.stringify(o)}); }
+        userMsg = o.message || "";
+        if(window._sessionFiles && window._sessionFiles.length){ o.media_files=window._sessionFiles; if(!o.message){ o.message="Phân tích và xâu chuỗi chi tiết các tệp đính kèm."; userMsg=o.message; } }
+        if(window._activeTurns.length) o.history = window._activeTurns.slice(-16);
+        init = Object.assign({}, init, {body: JSON.stringify(o)});
       }catch(_){}
     }
-    return of(u, init);
+    const res = await of(u, init);
+    if(isChat && res.ok){
+      (async()=>{
+        try{
+          const rd = res.clone().body.getReader(), dec = new TextDecoder("utf-8");
+          let buf="", full="", int="chat";
+          while(true){
+            const {value,done} = await rd.read(); if(done) break;
+            buf += dec.decode(value, {stream:true});
+            const ps = buf.split("\n\n"); buf = ps.pop();
+            for(const p of ps){
+              if(!p.startsWith("data: ")) continue;
+              const d = JSON.parse(p.slice(6));
+              if(d.intent) int = d.intent;
+              if(d.chunk) full += d.chunk;
+            }
+          }
+          if(userMsg && full){
+            window._activeTurns.push({role:"user", text:userMsg}, {role:"ai", text:full, intent:int});
+            const logs = getLogs();
+            if(!window._curLogId) window._curLogId = "c_" + Date.now();
+            const idx = logs.findIndex(x=>x.id===window._curLogId);
+            const item = {id: window._curLogId, title: window._activeTurns[0].text.slice(0,40), turns: window._activeTurns.slice(-30)};
+            if(idx>=0) logs.splice(idx,1);
+            logs.unshift(item);
+            setLogs(logs);
+            renderLogs();
+          }
+        }catch(_){}
+      })();
+    }
+    return res;
   };
+
   function cleanBtns(){
     document.querySelectorAll("button").forEach(btn=>{
       const t = (btn.textContent||"").trim();
@@ -182,28 +262,22 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
         if(/^(MUSIC|CHAT|VIDEO|IMAGE_EDIT)\b/i.test(txt)){ card = cur; break; }
         cur = cur.parentElement;
       }
-      const ctxt = card ? (card.innerText||card.textContent||"").trim() : "";
-      const isM = /^MUSIC\b/i.test(ctxt);
+      const isM = !!(card && /^MUSIC\b/i.test((card.innerText||card.textContent||"").trim()));
       if(isM && (t==="Copy lời"||t==="Copy bài hát")){
-        if(btn.textContent!=="Copy bài hát")btn.textContent="Copy bài hát";
-        btn.style.display = "";
+        if(btn.textContent!=="Copy bài hát") btn.textContent="Copy bài hát";
+        if(btn.style.display!=="") btn.style.display="";
       } else if(isM && t==="Mở Suno"){
-        btn.style.display = "";
+        if(btn.style.display!=="") btn.style.display="";
       } else {
-        btn.style.display = "none";
+        if(btn.style.display!=="none") btn.style.display="none";
       }
-      if(isM && row && !row.querySelector("[data-suno-fb]") && !Array.from(row.querySelectorAll("button")).some(b=>(b.textContent||"").trim()==="Mở Suno" && b.style.display!=="none")){
-        const sb = document.createElement("button");
-        sb.className = btn.className;
-        sb.textContent = "Mở Suno";
-        sb.setAttribute("data-suno-fb","1");
-        sb.onclick = ()=>window.open("https://suno.com/create","_blank");
-        row.appendChild(sb);
+      if(row){
+        const vis = Array.from(row.children).some(c=>c.style.display!=="none") ? "" : "none";
+        if(row.style.display!==vis) row.style.display=vis;
       }
-      if(row) row.style.display = Array.from(row.children).some(c=>c.style.display!=="none") ? "" : "none";
     });
   }
-  setInterval(cleanBtns,300);
+  setInterval(cleanBtns, 400);
 })();
 </script>
 <!-- CLEAN_UI_END -->
