@@ -1,3 +1,4 @@
+import brain_core as _bc
 import os, re, io, json, base64, socket, tarfile, requests
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context, send_file
 
@@ -346,13 +347,24 @@ def api_upload_media():
 def api_chat_stream():
     d = request.get_json(silent=True) or {}
     msg, mode, sk, img, hist, mf = (d.get("message") or "").strip(), d.get("mode") or "auto", d.get("music_style") or "auto", d.get("image_data") or "", d.get("history") or [], d.get("media_files") or []
+    pro_mode = bool(d.get("pro_mode"))
     if not msg and not img and not mf: return jsonify({"status": "error", "message": "Hãy nhập nội dung!"}), 400
     intent, ck, fk = smart_intent_of(msg, mode, bool(img), mf), os.getenv("AI_CHAT_KEY", "").strip(), os.getenv("FAL_API_KEY", "").strip()
     sys_p = build_smart_sys(intent, sk, mf, bool(img), hist, msg)
+    if intent == "chat" and (msg or "").lower().strip() not in GREETS:
+        mem = _bc.retrieve_memories(msg, k=3)
+        if mem: sys_p += "\n\n" + mem
     def gen():
         yield sse({"intent": intent})
         got, err, full = False, "", ""
-        if ck.startswith(("AIza", "AQ.")):
+        if pro_mode and intent == "chat" and not mf and ck.startswith(("AIza", "AQ.")):
+            _, rname, rtemp = _bc.classify_role(msg, False)
+            yield sse({"chunk": f"🧠 [{rname} + Verifier]\n\n"})
+            ans, ok_py, py_err = _bc.run_verified_pipeline(SESSION, ck, msg, SMART_BRAIN_PROMPT, rname, rtemp)
+            if ans:
+                got = True; full = ans
+                yield sse({"chunk": ans})
+        if not got and ck.startswith(("AIza", "AQ.")):
             for c in stream_gemini_mm(ck, sys_p, msg, hist, img, mf):
                 if c.startswith("__ERR__:"): err = c[8:]; break
                 got = True; full += c; yield sse({"chunk": c})
@@ -393,6 +405,21 @@ def _assetlinks_json():
 @app.route("/privacy")
 def _privacy_page():
     return """<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chính sách bảo mật - AI-Phdam</title></head><body style="font-family:sans-serif;max-width:680px;margin:24px auto;padding:0 16px;line-height:1.6"><h2>Chính sách bảo mật - AI-Phdam Studio</h2><p>Ứng dụng không bán hoặc chia sẻ dữ liệu cá nhân của bạn cho bên thứ ba. Nội dung bạn tải lên chỉ được gửi qua Google Gemini API để xử lý theo yêu cầu của chính bạn.</p></body></html>"""
+
+
+@app.route("/api/brain-db", methods=["GET", "POST"])
+def _api_brain_db():
+    if request.method == "GET":
+        return jsonify(_bc.load_db())
+    d = request.get_json(silent=True) or {}
+    act = d.get("action")
+    if act == "add":
+        _bc.add_memory(d.get("type", "semantic"), d.get("title", ""), d.get("body", ""))
+    elif act == "clear":
+        _bc.save_db({k: [] for k in _bc.DEFAULT_DB})
+    elif act == "import" and isinstance(d.get("db"), dict):
+        _bc.save_db(d["db"])
+    return jsonify({"status": "ok", "db": _bc.load_db()})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False, threaded=True)

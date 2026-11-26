@@ -4,3 +4,5 @@ _tmp_uploads/
 *.pyc
 .env
 brain_memory.json
+
+brain_db.json

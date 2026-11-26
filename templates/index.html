@@ -38,13 +38,16 @@
     <div id="cfgSt" style="font-size:.78rem;margin-top:6px;color:#15803d"></div>
   </div>
   <div class="ds"><h4>Icon ứng dụng</h4><input type="file" id="icIn" accept="image/*" style="position:fixed;top:-999px;opacity:0"><label class="ibtn" for="icIn" style="display:block;text-align:center">Chọn ảnh làm Icon App</label><div id="icSt" style="font-size:.76rem;color:#15803d;margin-top:5px"></div></div>
-  <div class="ds" id="histBox"><h4>Nhật ký trò chuyện</h4><div id="histList" style="max-height:210px;overflow:auto;display:flex;flex-direction:column;gap:6px"></div></div><div class="ds"><h4>Lưu trữ Google Drive</h4><a class="ibtn" href="/api/export-installer" download="CaiDat-AI-Phdam.txt" style="display:block;text-align:center;text-decoration:none">Tải File Cài Đặt (Lưu Drive)</a></div>
+  <!-- EXTRA_MENU_START -->
+<div class="ds"><h4>Nhật ký trò chuyện</h4><div id="histList" style="max-height:170px;overflow:auto;display:flex;flex-direction:column;gap:5px"></div></div>
+<div class="ds"><h4>🧠 Bộ nhớ & Kỹ năng AI</h4><div id="brainStat" style="font-size:.78rem;color:#334155;margin-bottom:6px">Đang tải...</div><div style="display:flex;gap:6px"><button type="button" id="bBrainView" class="ibtn" style="flex:1">Xem / Xuất</button><button type="button" id="bBrainClr" class="ibtn" style="color:#b91c1c">Xóa bộ nhớ</button></div></div>
+<!-- EXTRA_MENU_END --><div class="ds"><h4>Lưu trữ Google Drive</h4><a class="ibtn" href="/api/export-installer" download="CaiDat-AI-Phdam.txt" style="display:block;text-align:center;text-decoration:none">Tải File Cài Đặt (Lưu Drive)</a></div>
 </aside>
 <div class="app">
   <header class="top"><button class="ibtn" id="bMenu">&#9776; Menu</button><div class="brand"><span class="dot {{ 'on' if has_key else '' }}" id="aiDot"></span>AI-Phdam Studio</div><button class="ibtn" id="bNew">+ Mới</button></header>
   <main class="feed" id="feed"><div class="wel" id="wel"><h2>Chào ngày mới!</h2><p>Bạn cần mình giúp gì hôm nay?</p></div></main>
   <div class="comp"><div class="pbar" id="pbar"><img id="pImg"><button class="ibtn" id="bRmImg">Xóa ảnh</button></div>
-    <div id="mStrip" style="display:none;flex-wrap:wrap;gap:6px;padding:6px 10px;background:#f8fafc;border-top:1px solid #e2e8f0;align-items:center;font-size:.78rem"></div><div class="bar"><input type="file" id="fIn" multiple accept="image/*,audio/*,video/*" style="position:fixed;top:-999px;opacity:0"><label class="ibtn" id="bImg" for="fIn">+ Tệp</label><textarea id="txt" rows="1" placeholder="Nhắn yêu cầu của bạn..."></textarea><button class="sbtn" id="bSend">Gửi</button></div>
+    <div id="mStrip" style="display:none;flex-wrap:wrap;gap:6px;padding:6px 10px;background:#f8fafc;border-top:1px solid #e2e8f0;align-items:center;font-size:.78rem"></div><div class="bar"><input type="file" id="fIn" multiple accept="image/*,audio/*,video/*" style="position:fixed;top:-999px;opacity:0"><label class="ibtn" id="bImg" for="fIn">+ Tệp</label><button type="button" id="proBtn" title="Chế độ Chuyên gia (Multi-Agent + Kiểm chứng)" style="border:1px solid #cbd5e1;background:#f1f5f9;color:#475569;border-radius:10px;padding:7px 9px;font-size:.82rem;cursor:pointer;flex-shrink:0">🧠</button><textarea id="txt" rows="1" placeholder="Nhắn yêu cầu của bạn..."></textarea><button class="sbtn" id="bSend">Gửi</button></div>
   </div>
 </div>
 <script>
@@ -133,8 +136,42 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
   window._sessionFiles = window._sessionFiles || [];
   window._activeTurns = window._activeTurns || [];
   window._curLogId = window._curLogId || null;
+  window._proMode = false;
+
   const fIn = document.getElementById("fIn"), mStrip = document.getElementById("mStrip");
   const feed = document.getElementById("feed"), hList = document.getElementById("histList");
+  const proBtn = document.getElementById("proBtn"), txt = document.getElementById("txt");
+  const bStat = document.getElementById("brainStat"), bView = document.getElementById("bBrainView"), bClr = document.getElementById("bBrainClr");
+
+  if(proBtn){
+    proBtn.onclick = ()=>{
+      window._proMode = !window._proMode;
+      proBtn.style.background = window._proMode ? "#2563eb" : "#f1f5f9";
+      proBtn.style.color = window._proMode ? "#fff" : "#475569";
+      proBtn.textContent = window._proMode ? "🧠 Pro" : "🧠";
+      if(txt) txt.placeholder = window._proMode ? "Chế độ Chuyên gia: Multi-Agent + Kiểm chứng..." : "Nhắn yêu cầu của bạn...";
+    };
+  }
+
+  async function refreshBrain(){
+    if(!bStat) return;
+    try{
+      const db = await (await fetch("/api/brain-db")).json();
+      const cnt = (db.procedural||[]).length + (db.episodic||[]).length + (db.semantic||[]).length + (db.project||[]).length;
+      bStat.textContent = `Kỹ năng (Skills): ${(db.procedural||[]).length} | Kinh nghiệm: ${(db.episodic||[]).length} | Tổng mục nhớ: ${cnt}`;
+    }catch(_){ bStat.textContent = "Chưa tải được bộ nhớ."; }
+  }
+  refreshBrain();
+  if(bView) bView.onclick = async ()=>{
+    const db = await (await fetch("/api/brain-db")).json();
+    const blob = new Blob([JSON.stringify(db,null,2)], {type:"application/json"});
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "ai-phdam-memory.json"; a.click();
+  };
+  if(bClr) bClr.onclick = async ()=>{
+    if(!confirm("Xóa toàn bộ bộ nhớ & kỹ năng đã học?")) return;
+    await fetch("/api/brain-db",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"clear"})});
+    refreshBrain();
+  };
 
   function escH(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   function getLogs(){ try{ return JSON.parse(localStorage.getItem(LKEY)||"[]"); }catch(_){ return []; } }
@@ -212,6 +249,7 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
       try{
         const o = JSON.parse(init.body);
         userMsg = o.message || "";
+        o.pro_mode = !!window._proMode;
         if(window._sessionFiles && window._sessionFiles.length){ o.media_files=window._sessionFiles; if(!o.message){ o.message="Phân tích và xâu chuỗi chi tiết các tệp đính kèm."; userMsg=o.message; } }
         if(window._activeTurns.length) o.history = window._activeTurns.slice(-16);
         init = Object.assign({}, init, {body: JSON.stringify(o)});
@@ -244,6 +282,7 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
             logs.unshift(item);
             setLogs(logs);
             renderLogs();
+            refreshBrain();
           }
         }catch(_){}
       })();
