@@ -421,5 +421,15 @@ def _api_brain_db():
         _bc.save_db(d["db"])
     return jsonify({"status": "ok", "db": _bc.load_db()})
 
+
+@app.route("/api/download-project/<pid>")
+def _download_project_zip(pid):
+    if not re.fullmatch(r"p_\d+", pid or ""):
+        return jsonify({"status": "error", "message": "Invalid ID"}), 400
+    zp = os.path.join(_bc.WS_ROOT, f"{pid}.zip")
+    if not os.path.exists(zp):
+        return jsonify({"status": "error", "message": "File không tồn tại hoặc đã hết hạn"}), 404
+    return send_file(zp, as_attachment=True, download_name=f"AI-Phdam-{pid}.zip")
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False, threaded=True)
