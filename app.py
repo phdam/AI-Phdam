@@ -223,10 +223,10 @@ def smart_intent_of(msg, mode, has_img, media_files):
     m = (msg or "").lower().strip()
     if mode and mode != "auto": return mode
     if any(k in m for k in ("không sáng tác", "ko sáng tác", "đừng sáng tác", "có sáng tác đâu", "không phải nhạc", "ko viết nhạc", "đừng viết nhạc")): return "chat"
+    if re.search(r'(sửa ảnh|thay nền|đổi nền|xóa nền|tách nền|ghép nền|đổi đồ|chỉnh ảnh|vẽ ảnh|tạo ảnh|tạo video|làm video|biến thành video|chuyển thành video)', m) and not any(x in m for x in ("phân tích", "xâu chuỗi", "kiểm tra", "đọc")):
+        return "video" if "video" in m else "image_edit"
     if media_files: return "chat"
-    if re.search(r'(sáng tác|viết lời|viết bài hát|tạo bài hát|làm bài hát|viết nhạc|tạo nhạc|chế nhạc|phổ nhạc|làm bài nhạc|viết rap|viết bolero|sáng tác nhạc)', m): return "music"
-    if has_img and re.search(r'(sửa ảnh|đổi đồ|thay nền|chỉnh ảnh|tạo video|biến thành video)', m): return "video" if "video" in m else "image_edit"
-    if re.search(r'^(tạo video|vẽ ảnh|tạo ảnh)\b', m): return "video" if "video" in m else "image_edit"
+    if re.search(r'(sáng tác|viết lời|viết bài hát|tạo bài hát|phổ nhạc|làm bài nhạc|viết rap|viết bolero|sáng tác nhạc)', m): return "music"
     return "chat"
 def build_smart_sys(intent, sk, media_files, has_img, hist, msg):
     if intent == "music": base = f"{BRAIN_PROMPT}\nTác vụ: music. Điệu: {STYLES.get(sk, 'Tự động')}."
@@ -373,7 +373,8 @@ def api_chat_stream():
             full = off; yield sse({"chunk": off})
         if got and intent == "chat": _save_mem(msg, full)
         out = {"done": True, "intent": intent, "synth": synth_of(sk, msg) if intent == "music" else "", "img_tools": bool(img) and intent == "image_edit", "vid_tools": bool(img) and intent == "video"}
-        if fk and not mf and intent in ("video", "image_edit"):
+        if not fk and intent in ("video", "image_edit"): out["media_note"] = "⚠️ Cần nhập Key Fal.ai (trong ≡ Menu hoặc biến FAL_API_KEY trên Render) để sửa ảnh / làm video!"
+        if fk and intent in ("video", "image_edit"):
             m = re.search(r"MEDIA_PROMPT:\s*(.+)", full)
             mr, me = call_fal(intent, m.group(1).strip() if m else (msg or "cinematic realistic style"), img, fk)
             if mr: out["media"] = mr
