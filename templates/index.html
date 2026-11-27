@@ -151,7 +151,7 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
     proBtn.textContent = window._proMode ? "🧠 Pro" : "🧠";
     if(txt) txt.placeholder = window._proMode ? "Chế độ Chuyên gia: Multi-Agent + Tự học Skill..." : "Nhắn yêu cầu của bạn...";
   }
-  syncProUI();
+  syncProUI(); document.querySelectorAll(".ds").forEach(d=>{ const h=(d.querySelector("h4")?.textContent||"").toUpperCase(); if(h.includes("CHẾ ĐỘ")||h.includes("ĐIỆU NHẠC")||h.includes("KEY AI")) d.style.display="none"; });
   if(proBtn) proBtn.onclick = ()=>{ window._proMode = !window._proMode; localStorage.setItem(PKEY, window._proMode ? "1" : "0"); syncProUI(); };
 
   function escH(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
