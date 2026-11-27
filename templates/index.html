@@ -40,7 +40,7 @@
   <div class="ds"><h4>Icon ứng dụng</h4><input type="file" id="icIn" accept="image/*" style="position:fixed;top:-999px;opacity:0"><label class="ibtn" for="icIn" style="display:block;text-align:center">Chọn ảnh làm Icon App</label><div id="icSt" style="font-size:.76rem;color:#15803d;margin-top:5px"></div></div>
   <!-- EXTRA_MENU_START -->
 <div class="ds"><h4>Nhật ký trò chuyện</h4><div id="histList" style="max-height:150px;overflow:auto;display:flex;flex-direction:column;gap:5px"></div></div>
-<div class="ds"><h4>🧠 Bộ nhớ & Kỹ năng AI</h4><div id="brainStat" style="font-size:.78rem;color:#334155;margin-bottom:5px">Đang tải...</div><div id="brainList" style="max-height:140px;overflow:auto;display:flex;flex-direction:column;gap:4px;margin-bottom:6px"></div><div style="display:flex;gap:5px;flex-wrap:wrap"><button type="button" id="bTeachSkill" class="ibtn" style="flex:1;background:#dbeafe;color:#1d4ed8">🎓 Tự học Skill</button><button type="button" id="bBrainView" class="ibtn">Xuất JSON</button><button type="button" id="bBrainClr" class="ibtn" style="color:#b91c1c">Xóa</button></div></div>
+<div class="ds"><h4>🧠 Bộ nhớ & Kỹ năng AI</h4><div id="brainStat" style="font-size:.78rem;color:#334155;margin-bottom:5px">Đang đồng bộ...</div><div id="brainList" style="max-height:140px;overflow:auto;display:flex;flex-direction:column;gap:4px;margin-bottom:6px"></div><div style="display:flex;gap:5px;flex-wrap:wrap"><button type="button" id="bTeachSkill" class="ibtn" style="flex:1;background:#dbeafe;color:#1d4ed8">🎓 Tự học Skill</button><button type="button" id="bSyncNow" class="ibtn">🔄 Đồng bộ</button><button type="button" id="bBrainView" class="ibtn">Xuất</button><button type="button" id="bBrainClr" class="ibtn" style="color:#b91c1c">Xóa</button></div></div>
 <!-- EXTRA_MENU_END --><div class="ds"><h4>Lưu trữ Google Drive</h4><a class="ibtn" href="/api/export-installer" download="CaiDat-AI-Phdam.txt" style="display:block;text-align:center;text-decoration:none">Tải File Cài Đặt (Lưu Drive)</a></div>
 </aside>
 <div class="app">
@@ -132,7 +132,7 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
 <!-- CLEAN_UI_START -->
 <script>
 (function(){
-  const LKEY = "phdam_logs_v1", PKEY = "phdam_pro_mode";
+  const LKEY = "phdam_logs_v1", PKEY = "phdam_pro_mode", BKEY = "phdam_brain_db_v1";
   window._sessionFiles = window._sessionFiles || [];
   window._activeTurns = window._activeTurns || [];
   window._curLogId = window._curLogId || null;
@@ -142,7 +142,7 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
   const feed = document.getElementById("feed"), hList = document.getElementById("histList");
   const proBtn = document.getElementById("proBtn"), txt = document.getElementById("txt"), bSend = document.getElementById("bSend");
   const bStat = document.getElementById("brainStat"), bList = document.getElementById("brainList");
-  const bTeach = document.getElementById("bTeachSkill"), bView = document.getElementById("bBrainView"), bClr = document.getElementById("bBrainClr");
+  const bTeach = document.getElementById("bTeachSkill"), bSync = document.getElementById("bSyncNow"), bView = document.getElementById("bBrainView"), bClr = document.getElementById("bBrainClr");
 
   function syncProUI(){
     if(!proBtn) return;
@@ -152,21 +152,27 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
     if(txt) txt.placeholder = window._proMode ? "Chế độ Chuyên gia: Multi-Agent + Tự học Skill..." : "Nhắn yêu cầu của bạn...";
   }
   syncProUI();
-  if(proBtn){
-    proBtn.onclick = ()=>{ window._proMode = !window._proMode; localStorage.setItem(PKEY, window._proMode ? "1" : "0"); syncProUI(); };
-  }
+  if(proBtn) proBtn.onclick = ()=>{ window._proMode = !window._proMode; localStorage.setItem(PKEY, window._proMode ? "1" : "0"); syncProUI(); };
 
   function escH(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  const cntOf = d => (d.procedural||[]).length+(d.episodic||[]).length+(d.project||[]).length+(d.semantic||[]).length;
 
   async function refreshBrain(){
     if(!bStat) return;
     try{
-      const db = await (await fetch("/api/brain-db")).json();
+      let db = await (await fetch("/api/brain-db")).json();
+      let loc = {}; try{ loc = JSON.parse(localStorage.getItem(BKEY)||"{}"); }catch(_){}
+      if(cntOf(db) === 0 && cntOf(loc) > 0){
+        await fetch("/api/brain-db",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"import",db:loc})});
+        db = loc;
+      } else if(cntOf(db) > 0){
+        try{ localStorage.setItem(BKEY, JSON.stringify(db)); }catch(_){}
+      }
       const sk = db.procedural||[], ep = db.episodic||[], pj = db.project||[], sm = db.semantic||[];
-      bStat.textContent = `Skills: ${sk.length} | Kinh nghiệm: ${ep.length} | Dự án: ${pj.length}`;
+      bStat.textContent = `Skills: ${sk.length} | Kinh nghiệm: ${ep.length} | Dự án: ${pj.length} (Tự động đồng bộ)`;
       if(bList){
         const items = [...sk.map(x=>["SKILL",x]), ...ep.map(x=>["KINH NGHIỆM",x]), ...pj.map(x=>["DỰ ÁN",x]), ...sm.map(x=>["KIẾN THỨC",x])].reverse().slice(0,20);
-        bList.innerHTML = items.length ? items.map(([tp, it])=>`<div style="background:#f8fafc;border:1px solid #e2e8f0;padding:5px 7px;border-radius:7px;font-size:.75rem"><b style="color:#1d4ed8">[${tp}] ${escH(it.title)}</b><div style="color:#475569;margin-top:2px">${escH(it.body)}</div></div>`).join("") : '<div style="font-size:.76rem;color:#64748b">Chưa có Skill nào. Hãy bật 🧠 Pro hoặc bấm Tự học Skill!</div>';
+        bList.innerHTML = items.length ? items.map(([tp, it])=>`<div style="background:#f8fafc;border:1px solid #e2e8f0;padding:5px 7px;border-radius:7px;font-size:.75rem"><b style="color:#1d4ed8">[${tp}] ${escH(it.title)}</b><div style="color:#475569;margin-top:2px">${escH(it.body)}</div></div>`).join("") : '<div style="font-size:.76rem;color:#64748b">Chưa có Skill nào. Bấm 🎓 Tự học Skill hoặc bật 🧠 Pro!</div>';
       }
     }catch(_){ bStat.textContent = "Chưa tải được bộ nhớ."; }
   }
@@ -180,12 +186,18 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
     if(xBtn) xBtn.click();
     if(txt && bSend){ txt.value = "Tự học và nghiên cứu kỹ năng: " + topic.trim(); bSend.click(); }
   };
+  if(bSync) bSync.onclick = async ()=>{
+    bStat.textContent = "⏳ Đang đồng bộ...";
+    await refreshBrain();
+    try{ const r = await (await fetch("/api/sync-cloud",{method:"POST"})).json(); alert(r.message || "Đã đồng bộ!"); }catch(_){}
+  };
   if(bView) bView.onclick = async ()=>{
     const db = await (await fetch("/api/brain-db")).json();
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:"application/json"})); a.download = "ai-phdam-memory.json"; a.click();
   };
   if(bClr) bClr.onclick = async ()=>{
     if(!confirm("Xóa toàn bộ bộ nhớ & kỹ năng đã học?")) return;
+    localStorage.removeItem(BKEY);
     await fetch("/api/brain-db",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"clear"})});
     refreshBrain();
   };

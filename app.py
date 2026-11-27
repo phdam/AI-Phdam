@@ -1,3 +1,4 @@
+import subprocess
 import brain_core as _bc
 import os, re, io, json, base64, socket, tarfile, requests
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context, send_file
@@ -431,6 +432,15 @@ def _download_project_zip(pid):
     if not os.path.exists(zp):
         return jsonify({"status": "error", "message": "File không tồn tại hoặc đã hết hạn"}), 404
     return send_file(zp, as_attachment=True, download_name=f"AI-Phdam-{pid}.zip")
+
+
+@app.route("/api/sync-cloud", methods=["POST"])
+def _api_sync_cloud():
+    sc = os.path.expanduser("~/sync_ai.sh")
+    if os.path.exists(sc):
+        subprocess.Popen(["bash", sc])
+        return jsonify({"status": "ok", "message": "Đang tự đồng bộ Termux -> GitHub -> Render!"})
+    return jsonify({"status": "ok", "message": "Đang chạy trên Cloud, bộ nhớ tự đồng bộ với máy bạn!"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False, threaded=True)
