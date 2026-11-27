@@ -6,7 +6,7 @@ DB_PATH = os.path.join(BASE_DIR, "brain_db.json")
 WS_ROOT = os.path.join(BASE_DIR, "_workspaces")
 os.makedirs(WS_ROOT, exist_ok=True)
 DEFAULT_DB = {"working": [], "episodic": [], "semantic": [], "procedural": [], "project": []}
-PRO_MODELS = ("gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.5-flash-lite")
+PRO_MODELS = ("gemini-3-flash-preview", "gemini-3.6-flash", "gemini-2.5-pro", "gemini-3.5-flash-lite")
 
 def load_db():
     try:
@@ -114,7 +114,7 @@ def call_gemini_once(session, key, sys_p, prompt, temp=0.2, mdl_list=PRO_MODELS,
                 except Exception as e:
                     last_err = f"{mdl}: {e}"
                     break
-            if hit_429: break
+            pass
     if "429" in last_err:
         last_err = "Hết lượt gọi miễn phí (429). Đợi 1-2 phút hoặc thêm Key dự phòng vào AI_CHAT_KEY (Key1,Key2)."
     return "", last_err or "Không gọi được model"
