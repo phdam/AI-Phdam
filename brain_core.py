@@ -1,3 +1,4 @@
+import sys
 import os, re, ast, json, time, zipfile, shutil, subprocess
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -67,7 +68,7 @@ def is_project_build(msg):
 
 def is_research_learn(msg):
     m = (msg or "").lower()
-    return bool(re.search(r'(tự học|học kỹ năng|tạo skill|nghiên cứu|tìm hiểu công nghệ|cập nhật kiến thức)', m))
+    return bool(re.search(r'(tự học|học kỹ năng|tạo skill|nâng cấp skill|cải tiến skill|viết skill|nghiên cứu|tìm hiểu công nghệ|cập nhật kiến thức)', m))
 
 def verify_python_blocks(text):
     blocks = re.findall(r'```python\s*(.*?)```', text or "", re.DOTALL | re.IGNORECASE)
@@ -227,7 +228,8 @@ def run_verified_pipeline(session, key, msg, base_sys, role_name, temp):
         if pid: ans += f"\n\n📦 **[Tải toàn bộ dự án .zip tại đây](/api/download-project/{pid})**"
         return ans, True, ""
     if is_research_learn(msg):
-        ans, ok = run_research_pipeline(session, key, msg)
+        import skill_creator as _sc
+        ans, pid, ok = _sc.create_or_evolve_skill(session, key, msg, sys.modules[__name__])
         return ans, ok, ""
     mem_ctx = retrieve_memories(msg, k=5)
     spec_sys = f"{base_sys}\n[VAI TRÒ]: {role_name}.\n{mem_ctx}\nPhân tích sâu, giải pháp/code chạy được ngay."
