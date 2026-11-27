@@ -357,7 +357,7 @@ def api_chat_stream():
     def gen():
         yield sse({"intent": intent})
         got, err, full = False, "", ""
-        if pro_mode and intent == "chat" and not mf and ck.startswith(("AIza", "AQ.")):
+        if (pro_mode or _bc.is_project_build(msg) or _bc.is_research_learn(msg)) and intent == "chat" and not mf and ck.startswith(("AIza", "AQ.")):
             _, rname, rtemp = _bc.classify_role(msg, False)
             yield sse({"chunk": f"🧠 [{rname} + Verifier]\n\n"})
             ans, ok_py, py_err = _bc.run_verified_pipeline(SESSION, ck, msg, SMART_BRAIN_PROMPT, rname, rtemp)

@@ -39,8 +39,8 @@
   </div>
   <div class="ds"><h4>Icon ứng dụng</h4><input type="file" id="icIn" accept="image/*" style="position:fixed;top:-999px;opacity:0"><label class="ibtn" for="icIn" style="display:block;text-align:center">Chọn ảnh làm Icon App</label><div id="icSt" style="font-size:.76rem;color:#15803d;margin-top:5px"></div></div>
   <!-- EXTRA_MENU_START -->
-<div class="ds"><h4>Nhật ký trò chuyện</h4><div id="histList" style="max-height:170px;overflow:auto;display:flex;flex-direction:column;gap:5px"></div></div>
-<div class="ds"><h4>🧠 Bộ nhớ & Kỹ năng AI</h4><div id="brainStat" style="font-size:.78rem;color:#334155;margin-bottom:6px">Đang tải...</div><div style="display:flex;gap:6px"><button type="button" id="bBrainView" class="ibtn" style="flex:1">Xem / Xuất</button><button type="button" id="bBrainClr" class="ibtn" style="color:#b91c1c">Xóa bộ nhớ</button></div></div>
+<div class="ds"><h4>Nhật ký trò chuyện</h4><div id="histList" style="max-height:150px;overflow:auto;display:flex;flex-direction:column;gap:5px"></div></div>
+<div class="ds"><h4>🧠 Bộ nhớ & Kỹ năng AI</h4><div id="brainStat" style="font-size:.78rem;color:#334155;margin-bottom:5px">Đang tải...</div><div id="brainList" style="max-height:140px;overflow:auto;display:flex;flex-direction:column;gap:4px;margin-bottom:6px"></div><div style="display:flex;gap:5px;flex-wrap:wrap"><button type="button" id="bTeachSkill" class="ibtn" style="flex:1;background:#dbeafe;color:#1d4ed8">🎓 Tự học Skill</button><button type="button" id="bBrainView" class="ibtn">Xuất JSON</button><button type="button" id="bBrainClr" class="ibtn" style="color:#b91c1c">Xóa</button></div></div>
 <!-- EXTRA_MENU_END --><div class="ds"><h4>Lưu trữ Google Drive</h4><a class="ibtn" href="/api/export-installer" download="CaiDat-AI-Phdam.txt" style="display:block;text-align:center;text-decoration:none">Tải File Cài Đặt (Lưu Drive)</a></div>
 </aside>
 <div class="app">
@@ -132,40 +132,57 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
 <!-- CLEAN_UI_START -->
 <script>
 (function(){
-  const LKEY = "phdam_logs_v1";
+  const LKEY = "phdam_logs_v1", PKEY = "phdam_pro_mode";
   window._sessionFiles = window._sessionFiles || [];
   window._activeTurns = window._activeTurns || [];
   window._curLogId = window._curLogId || null;
-  window._proMode = false;
+  window._proMode = localStorage.getItem(PKEY) === "1";
 
   const fIn = document.getElementById("fIn"), mStrip = document.getElementById("mStrip");
   const feed = document.getElementById("feed"), hList = document.getElementById("histList");
-  const proBtn = document.getElementById("proBtn"), txt = document.getElementById("txt");
-  const bStat = document.getElementById("brainStat"), bView = document.getElementById("bBrainView"), bClr = document.getElementById("bBrainClr");
+  const proBtn = document.getElementById("proBtn"), txt = document.getElementById("txt"), bSend = document.getElementById("bSend");
+  const bStat = document.getElementById("brainStat"), bList = document.getElementById("brainList");
+  const bTeach = document.getElementById("bTeachSkill"), bView = document.getElementById("bBrainView"), bClr = document.getElementById("bBrainClr");
 
-  if(proBtn){
-    proBtn.onclick = ()=>{
-      window._proMode = !window._proMode;
-      proBtn.style.background = window._proMode ? "#2563eb" : "#f1f5f9";
-      proBtn.style.color = window._proMode ? "#fff" : "#475569";
-      proBtn.textContent = window._proMode ? "🧠 Pro" : "🧠";
-      if(txt) txt.placeholder = window._proMode ? "Chế độ Chuyên gia: Multi-Agent + Kiểm chứng..." : "Nhắn yêu cầu của bạn...";
-    };
+  function syncProUI(){
+    if(!proBtn) return;
+    proBtn.style.background = window._proMode ? "#2563eb" : "#f1f5f9";
+    proBtn.style.color = window._proMode ? "#fff" : "#475569";
+    proBtn.textContent = window._proMode ? "🧠 Pro" : "🧠";
+    if(txt) txt.placeholder = window._proMode ? "Chế độ Chuyên gia: Multi-Agent + Tự học Skill..." : "Nhắn yêu cầu của bạn...";
   }
+  syncProUI();
+  if(proBtn){
+    proBtn.onclick = ()=>{ window._proMode = !window._proMode; localStorage.setItem(PKEY, window._proMode ? "1" : "0"); syncProUI(); };
+  }
+
+  function escH(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
   async function refreshBrain(){
     if(!bStat) return;
     try{
       const db = await (await fetch("/api/brain-db")).json();
-      const cnt = (db.procedural||[]).length + (db.episodic||[]).length + (db.semantic||[]).length + (db.project||[]).length;
-      bStat.textContent = `Kỹ năng (Skills): ${(db.procedural||[]).length} | Kinh nghiệm: ${(db.episodic||[]).length} | Tổng mục nhớ: ${cnt}`;
+      const sk = db.procedural||[], ep = db.episodic||[], pj = db.project||[], sm = db.semantic||[];
+      bStat.textContent = `Skills: ${sk.length} | Kinh nghiệm: ${ep.length} | Dự án: ${pj.length}`;
+      if(bList){
+        const items = [...sk.map(x=>["SKILL",x]), ...ep.map(x=>["KINH NGHIỆM",x]), ...pj.map(x=>["DỰ ÁN",x]), ...sm.map(x=>["KIẾN THỨC",x])].reverse().slice(0,20);
+        bList.innerHTML = items.length ? items.map(([tp, it])=>`<div style="background:#f8fafc;border:1px solid #e2e8f0;padding:5px 7px;border-radius:7px;font-size:.75rem"><b style="color:#1d4ed8">[${tp}] ${escH(it.title)}</b><div style="color:#475569;margin-top:2px">${escH(it.body)}</div></div>`).join("") : '<div style="font-size:.76rem;color:#64748b">Chưa có Skill nào. Hãy bật 🧠 Pro hoặc bấm Tự học Skill!</div>';
+      }
     }catch(_){ bStat.textContent = "Chưa tải được bộ nhớ."; }
   }
   refreshBrain();
+
+  if(bTeach) bTeach.onclick = ()=>{
+    const topic = prompt("Nhập chủ đề / công nghệ bạn muốn AI tự nghiên cứu & lưu Skill:");
+    if(!topic || !topic.trim()) return;
+    window._proMode = true; localStorage.setItem(PKEY, "1"); syncProUI();
+    const xBtn = Array.from(document.querySelectorAll("button")).find(b=>["×","✕"].includes((b.textContent||"").trim()));
+    if(xBtn) xBtn.click();
+    if(txt && bSend){ txt.value = "Tự học và nghiên cứu kỹ năng: " + topic.trim(); bSend.click(); }
+  };
   if(bView) bView.onclick = async ()=>{
     const db = await (await fetch("/api/brain-db")).json();
-    const blob = new Blob([JSON.stringify(db,null,2)], {type:"application/json"});
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "ai-phdam-memory.json"; a.click();
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:"application/json"})); a.download = "ai-phdam-memory.json"; a.click();
   };
   if(bClr) bClr.onclick = async ()=>{
     if(!confirm("Xóa toàn bộ bộ nhớ & kỹ năng đã học?")) return;
@@ -173,40 +190,26 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
     refreshBrain();
   };
 
-  function escH(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   function getLogs(){ try{ return JSON.parse(localStorage.getItem(LKEY)||"[]"); }catch(_){ return []; } }
   function setLogs(a){ try{ localStorage.setItem(LKEY, JSON.stringify(a.slice(0,30))); }catch(_){} }
-
   function renderLogs(){
     if(!hList) return;
     const logs = getLogs();
     if(!logs.length){ hList.innerHTML = '<div style="font-size:.78rem;color:#64748b">Chưa có nhật ký nào.</div>'; return; }
-    hList.innerHTML = logs.map((lg, i)=>(
-      `<div style="display:flex;align-items:center;gap:4px;background:#f1f5f9;padding:6px 8px;border-radius:8px">`+
-      `<span data-open="${i}" style="flex:1;font-size:.8rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(lg.title)}</span>`+
-      `<b data-del="${i}" style="cursor:pointer;color:#dc2626;padding:0 4px">×</b></div>`
-    )).join("");
+    hList.innerHTML = logs.map((lg, i)=>`<div style="display:flex;align-items:center;gap:4px;background:#f1f5f9;padding:6px 8px;border-radius:8px"><span data-open="${i}" style="flex:1;font-size:.8rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(lg.title)}</span><b data-del="${i}" style="cursor:pointer;color:#dc2626;padding:0 4px">×</b></div>`).join("");
     hList.querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>{
       const lg = getLogs()[Number(el.dataset.open)]; if(!lg) return;
-      window._curLogId = lg.id;
-      window._activeTurns = (lg.turns||[]).slice();
+      window._curLogId = lg.id; window._activeTurns = (lg.turns||[]).slice();
       if(feed){
-        feed.innerHTML = lg.turns.map(t=>{
-          if(t.role==="user") return `<div style="display:flex;justify-content:flex-end;margin:6px 0"><div style="background:#2563eb;color:#fff;padding:10px 14px;border-radius:14px;max-width:85%;white-space:pre-wrap">${escH(t.text)}</div></div>`;
-          const tag = (t.intent||"chat").toUpperCase();
-          return `<div style="display:flex;justify-content:flex-start;margin:6px 0"><div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:14px;max-width:90%;white-space:pre-wrap"><div style="display:inline-block;background:#e0e7ff;color:#1d4ed8;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:6px">${escH(tag)}</div><div>${escH(t.text)}</div></div></div>`;
-        }).join("");
+        feed.innerHTML = lg.turns.map(t=>t.role==="user" ? `<div style="display:flex;justify-content:flex-end;margin:6px 0"><div style="background:#2563eb;color:#fff;padding:10px 14px;border-radius:14px;max-width:85%;white-space:pre-wrap">${escH(t.text)}</div></div>` : `<div style="display:flex;justify-content:flex-start;margin:6px 0"><div style="background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:14px;max-width:90%;white-space:pre-wrap"><div style="display:inline-block;background:#e0e7ff;color:#1d4ed8;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:6px">${escH((t.intent||"chat").toUpperCase())}</div><div>${escH(t.text)}</div></div></div>`).join("");
         feed.scrollTop = feed.scrollHeight;
       }
-      const xBtn = Array.from(document.querySelectorAll("button")).find(b=>(b.textContent||"").trim()==="×" || (b.textContent||"").trim()==="✕");
+      const xBtn = Array.from(document.querySelectorAll("button")).find(b=>["×","✕"].includes((b.textContent||"").trim()));
       if(xBtn) xBtn.click();
     });
-    hList.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>{
-      const a = getLogs(); a.splice(Number(el.dataset.del), 1); setLogs(a); renderLogs();
-    });
+    hList.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>{ const a=getLogs(); a.splice(Number(el.dataset.del),1); setLogs(a); renderLogs(); });
   }
   renderLogs();
-
   const newBtn = Array.from(document.querySelectorAll("button")).find(b=>(b.textContent||"").includes("+ Mới"));
   if(newBtn) newBtn.addEventListener("click", ()=>{ window._curLogId=null; window._activeTurns=[]; });
 
@@ -280,9 +283,7 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
             const item = {id: window._curLogId, title: window._activeTurns[0].text.slice(0,40), turns: window._activeTurns.slice(-30)};
             if(idx>=0) logs.splice(idx,1);
             logs.unshift(item);
-            setLogs(logs);
-            renderLogs();
-            refreshBrain();
+            setLogs(logs); renderLogs(); refreshBrain();
           }
         }catch(_){}
       })();
@@ -290,48 +291,36 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
     return res;
   };
 
-  function cleanBtns(){
+  setInterval(()=>{
     document.querySelectorAll("button").forEach(btn=>{
       const t = (btn.textContent||"").trim();
       if(!["Copy lời","Mở Suno","Đọc lời","Copy bài hát"].includes(t)) return;
       const row = btn.parentElement;
       let cur = row, card = null;
       for(let i=0; i<6 && cur && cur!==document.body; i++){
-        const txt = (cur.innerText||cur.textContent||"").trim();
-        if(/^(MUSIC|CHAT|VIDEO|IMAGE_EDIT)\b/i.test(txt)){ card = cur; break; }
+        const tx = (cur.innerText||cur.textContent||"").trim();
+        if(/^(MUSIC|CHAT|VIDEO|IMAGE_EDIT)\b/i.test(tx)){ card = cur; break; }
         cur = cur.parentElement;
       }
       const isM = !!(card && /^MUSIC\b/i.test((card.innerText||card.textContent||"").trim()));
-      if(isM && (t==="Copy lời"||t==="Copy bài hát")){
-        if(btn.textContent!=="Copy bài hát") btn.textContent="Copy bài hát";
-        if(btn.style.display!=="") btn.style.display="";
-      } else if(isM && t==="Mở Suno"){
-        if(btn.style.display!=="") btn.style.display="";
-      } else {
-        if(btn.style.display!=="none") btn.style.display="none";
-      }
-      if(row){
-        const vis = Array.from(row.children).some(c=>c.style.display!=="none") ? "" : "none";
-        if(row.style.display!==vis) row.style.display=vis;
-      }
+      if(isM && (t==="Copy lời"||t==="Copy bài hát")){ if(btn.textContent!=="Copy bài hát") btn.textContent="Copy bài hát"; if(btn.style.display!=="") btn.style.display=""; }
+      else if(isM && t==="Mở Suno"){ if(btn.style.display!=="") btn.style.display=""; }
+      else { if(btn.style.display!=="none") btn.style.display="none"; }
+      if(row){ const vis = Array.from(row.children).some(c=>c.style.display!=="none") ? "" : "none"; if(row.style.display!==vis) row.style.display=vis; }
     });
-  }
-  setInterval(cleanBtns, 400);
-  setInterval(()=>{
-    if(!feed) return;
-    Array.from(feed.children).forEach(card=>{
-      const m = (card.textContent||"").match(/\/api\/download-project\/(p_\d+)/);
-      if(m && !card.querySelector("[data-dl-btn]")){
-        const a = document.createElement("a");
-        a.setAttribute("data-dl-btn","1");
-        a.href = "/api/download-project/" + m[1];
-        a.download = "AI-Phdam-" + m[1] + ".zip";
-        a.textContent = "📦 Tải toàn bộ dự án (.zip)";
-        a.style.cssText = "display:inline-block;margin-top:8px;background:#16a34a;color:#fff;padding:8px 14px;border-radius:10px;text-decoration:none;font-weight:600;font-size:.86rem";
-        card.appendChild(a);
-      }
-    });
-  }, 500);
+    if(feed){
+      Array.from(feed.children).forEach(card=>{
+        const m = (card.textContent||"").match(/\/api\/download-project\/(p_\d+)/);
+        if(m && !card.querySelector("[data-dl-btn]")){
+          const a = document.createElement("a"); a.setAttribute("data-dl-btn","1");
+          a.href = "/api/download-project/" + m[1]; a.download = "AI-Phdam-" + m[1] + ".zip";
+          a.textContent = "📦 Tải toàn bộ dự án (.zip)";
+          a.style.cssText = "display:inline-block;margin-top:8px;background:#16a34a;color:#fff;padding:8px 14px;border-radius:10px;text-decoration:none;font-weight:600;font-size:.86rem";
+          card.appendChild(a);
+        }
+      });
+    }
+  }, 450);
 })();
 </script>
 <!-- CLEAN_UI_END -->
