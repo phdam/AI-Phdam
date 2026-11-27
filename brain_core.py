@@ -223,6 +223,10 @@ def run_programmer_pipeline(session, key, msg, base_sys):
     return "\n\n".join(out), (pid if ok_test else ""), list(files.keys())
 
 def run_verified_pipeline(session, key, msg, base_sys, role_name, temp):
+    import self_upgrader as _su
+    if _su.is_self_upgrade(msg):
+        ans, uid, ok = _su.prepare_self_upgrade(session, key, msg, sys.modules[__name__])
+        return ans, ok, ""
     if is_project_build(msg):
         ans, pid, _ = run_programmer_pipeline(session, key, msg, base_sys)
         if pid: ans += f"\n\n📦 **[Tải toàn bộ dự án .zip tại đây](/api/download-project/{pid})**"

@@ -332,6 +332,27 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
         }
       });
     }
+
+    if(feed){
+      Array.from(feed.children).forEach(card=>{
+        const mu = (card.textContent||"").match(/\/api\/apply-upgrade\/(u_\d+)/);
+        if(mu && !card.querySelector("[data-upg-btn]")){
+          const b = document.createElement("button"); b.setAttribute("data-upg-btn","1");
+          b.textContent = "🚀 Phê duyệt & Nạp nâng cấp";
+          b.style.cssText = "display:inline-block;margin-top:8px;border:none;background:#ea580c;color:#fff;padding:9px 14px;border-radius:10px;font-weight:700;font-size:.86rem;cursor:pointer";
+          b.onclick = async ()=>{
+            if(!confirm("Xác nhận nạp bản nâng cấp đã kiểm thử này vào AI-Phdam?")) return;
+            b.disabled = true; b.textContent = "⏳ Đang nạp & đồng bộ...";
+            try{
+              const r = await (await fetch("/api/apply-upgrade/"+mu[1], {method:"POST"})).json();
+              if(r.status==="ok"){ b.style.background="#16a34a"; b.textContent="✅ " + r.message; setTimeout(()=>location.reload(), 2500); }
+              else { b.disabled=false; b.textContent="❌ " + (r.message||"Lỗi"); }
+            }catch(e){ b.disabled=false; b.textContent="❌ Lỗi: "+e.message; }
+          };
+          card.appendChild(b);
+        }
+      });
+    }
   }, 450);
 })();
 </script>

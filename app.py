@@ -1,5 +1,6 @@
 import subprocess
 import brain_core as _bc
+import self_upgrader as _su
 import os, re, io, json, base64, socket, tarfile, requests
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context, send_file
 
@@ -358,7 +359,7 @@ def api_chat_stream():
     def gen():
         yield sse({"intent": intent})
         got, err, full = False, "", ""
-        if (pro_mode or _bc.is_project_build(msg) or _bc.is_research_learn(msg)) and intent == "chat" and not mf and ck.startswith(("AIza", "AQ.")):
+        if (pro_mode or _bc.is_project_build(msg) or _bc.is_research_learn(msg) or _su.is_self_upgrade(msg)) and intent == "chat" and not mf and ck.startswith(("AIza", "AQ.")):
             _, rname, rtemp = _bc.classify_role(msg, False)
             yield sse({"chunk": f"🧠 [{rname} + Verifier]\n\n"})
             ans, ok_py, py_err = _bc.run_verified_pipeline(SESSION, ck, msg, SMART_BRAIN_PROMPT, rname, rtemp)
@@ -441,6 +442,18 @@ def _api_sync_cloud():
         subprocess.Popen(["bash", sc])
         return jsonify({"status": "ok", "message": "Đang tự đồng bộ Termux -> GitHub -> Render!"})
     return jsonify({"status": "ok", "message": "Đang chạy trên Cloud, bộ nhớ tự đồng bộ với máy bạn!"})
+
+
+@app.route("/api/apply-upgrade/<uid>", methods=["POST"])
+def _api_apply_upgrade(uid):
+    ok, msg = _su.apply_staged_upgrade(uid)
+    if not ok:
+        return jsonify({"status": "error", "message": msg}), 400
+    ra = os.path.expanduser("~/run-ai.sh")
+    if os.path.exists(ra):
+        subprocess.Popen(["bash", "-c", "sleep 1 && bash ~/run-ai.sh restart"])
+        return jsonify({"status": "ok", "message": msg + " Đang tự khởi động lại & đồng bộ GitHub/Render!"})
+    return jsonify({"status": "ok", "message": msg + " (Lưu ý: Trên Render Free, hãy phê duyệt từ 127.0.0.1:5000 để lưu vĩnh viễn lên GitHub!)"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False, threaded=True)
