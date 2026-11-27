@@ -223,7 +223,7 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(
   }
   renderLogs();
   const newBtn = Array.from(document.querySelectorAll("button")).find(b=>(b.textContent||"").includes("+ Mới"));
-  if(newBtn) newBtn.addEventListener("click", ()=>{ window._curLogId=null; window._activeTurns=[]; });
+  if(newBtn){ newBtn.addEventListener("click", ()=>{ window._curLogId=null; window._activeTurns=[]; }); if(!window._freshInit){ window._freshInit=1; setTimeout(()=>newBtn.click(), 60); } }
 
   function ico(m){ return (m||"").startsWith("audio/")?"🎵":((m||"").startsWith("video/")?"🎬":"🖼️"); }
   function renderStrip(st){
