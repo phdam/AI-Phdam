@@ -25,33 +25,25 @@ def create_or_evolve_skill(session, key, msg, bc):
     new_ver = prev_ver + 1 if existing else 1
     mode_lbl = f"Nâng cấp v{prev_ver} → v{new_ver}" if existing else "Tạo mới v1"
 
-    # 1-2. Phan tich & Nghien cuu (Knowledge Engine + Search)
-    res_p = (
-        f"Yêu cầu Skill ({mode_lbl}): {msg}\n"
-        + (f"Phiên bản cũ v{prev_ver} (điểm {prev_score}/100): {existing.get('body','')}\nHãy khắc phục điểm yếu và nâng cấp tốt hơn.\n" if existing else "")
-        + "Hãy nghiên cứu kiến thức mới nhất, xác định công cụ Python cần dùng (ưu tiên thư viện chuẩn hoặc flask/requests), cấu trúc SKILL.md và các ca test bắt buộc."
-    )
-    research, mdl = bc.call_gemini_once(session, key, "Bạn là AI Knowledge & Reasoning Engine chuyên sâu, luôn tra cứu thực tế trước khi thiết kế.", res_p, temp=0.25, use_search=True)
-    if not research:
-        return f"⚠️ Lỗi Knowledge Engine ({mdl})", "", False
-
-    # 3-5. Skill Architect + Coding Engine (Tao SKILL.md + skill_tool.py + test_skill.py)
+    # 1-5. Gop Nghien cuu + Thiet ke + Coding vao 1 luot (tiet kiem 50% quota)
     arch_sys = (
-        "Bạn là Skill Architect & Coding Engine. Xuất ĐÚNG 3 file theo định dạng:\n"
+        "Bạn là AI Master Skill Creator (Nghiên cứu + Kiến trúc + Lập trình).\n"
+        "Hãy nghiên cứu thực tế rồi xuất ĐÚNG 3 file theo định dạng:\n"
         "===FILE: SKILL.md===\n...\n===END_FILE===\n"
         "===FILE: skill_tool.py===\n...\n===END_FILE===\n"
         "===FILE: test_skill.py===\n...\n===END_FILE===\n"
-        "QUY TẮC:\n"
-        "- `SKILL.md` ghi rõ: Tên Skill, Phiên bản, Mục tiêu, Điều kiện kích hoạt, Cách dùng, Ví dụ.\n"
-        "- `skill_tool.py` viết hàm Python sạch, chạy độc lập (dùng thư viện chuẩn Python hoặc requests/flask), không hardcode API key.\n"
-        "- `test_skill.py` dùng unittest/assert kiểm tra ít nhất 3 tình huống (chuẩn, biên, lỗi) và tự thoát sau khi chạy xong."
+        "QUY TẮC: SKILL.md ghi rõ Tên, Phiên bản v" + str(new_ver) + ", Mục tiêu, Cách dùng, Ví dụ. "
+        "skill_tool.py viết Python sạch (thư viện chuẩn hoặc requests/flask), không lộ key. "
+        "test_skill.py tự test ít nhất 3 ca rồi tự thoát."
     )
-    gen_out, mdl2 = bc.call_gemini_once(session, key, arch_sys, f"YÊU CẦU:\n{msg}\n\nNGHIÊN CỨU:\n{research[:3500]}", temp=0.2)
+    prev_note = f"Nâng cấp từ v{prev_ver} ({prev_score}đ): {existing.get('body','')}\n" if existing else ""
+    gen_out, mdl2 = bc.call_gemini_once(session, key, arch_sys, f"Yêu cầu ({mode_lbl}): {msg}\n{prev_note}", temp=0.2, use_search=True)
     files = bc.parse_project_files(gen_out)
     if "skill_tool.py" not in files or "test_skill.py" not in files:
-        return (gen_out or f"⚠️ Lỗi tạo file Skill ({mdl2})"), "", False
+        return (gen_out or f"⚠️ Lỗi tạo Skill ({mdl2})"), "", False
     if "SKILL.md" not in files:
         files["SKILL.md"] = f"# Skill: {msg[:60]}\nPhiên bản: v{new_ver}\n"
+    research = files["SKILL.md"][:300]
 
     # 6-7. Testing & Debugging Gate (toi da 2 vong sua theo Traceback that)
     pid, ok_test, test_log = bc.run_workspace_tests(files)

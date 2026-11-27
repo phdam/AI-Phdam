@@ -79,31 +79,44 @@ def verify_python_blocks(text):
         except SyntaxError as e: errs.append(f"Block #{idx} dòng {e.lineno}: {e.msg}")
     return (len(errs) == 0), "; ".join(errs)
 
+def split_keys(raw):
+    return [k.strip() for k in re.split(r'[,;\s]+', raw or "") if k.strip().startswith(("AIza", "AQ."))]
+
 def call_gemini_once(session, key, sys_p, prompt, temp=0.2, mdl_list=PRO_MODELS, use_search=False):
+    keys = split_keys(key)
+    if not keys: return "", "Chưa có Key hợp lệ"
     base_body = {
         "systemInstruction": {"parts": [{"text": sys_p}]},
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {"maxOutputTokens": 8192, "temperature": temp}
     }
     last_err = ""
-    for mdl in mdl_list:
-        for try_search in ([True, False] if use_search else [False]):
-            body = dict(base_body)
-            if try_search: body["tools"] = [{"google_search": {}}]
-            try:
-                r = session.post(f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent", headers={"x-goog-api-key": key, "Content-Type": "application/json"}, json=body, timeout=(8, 60))
-                if r.status_code == 200:
-                    parts = (((r.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or [])
-                    txt = "".join(p.get("text", "") for p in parts if not p.get("thought"))
-                    if txt.strip(): return txt.strip(), mdl
-                else:
-                    last_err = f"{mdl} HTTP {r.status_code}: {r.text[:140]}"
-                    if r.status_code in (401, 403): return "", last_err
-                    if r.status_code == 400 and try_search: continue
+    for ak in keys:
+        hit_429 = False
+        for mdl in mdl_list:
+            for try_search in ([True, False] if use_search else [False]):
+                body = dict(base_body)
+                if try_search: body["tools"] = [{"google_search": {}}]
+                try:
+                    r = session.post(f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent", headers={"x-goog-api-key": ak, "Content-Type": "application/json"}, json=body, timeout=(8, 60))
+                    if r.status_code == 200:
+                        parts = (((r.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or [])
+                        txt = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+                        if txt.strip(): return txt.strip(), mdl
+                    else:
+                        last_err = f"{mdl} HTTP {r.status_code}: {r.text[:120]}"
+                        if r.status_code == 429:
+                            hit_429 = True
+                            break
+                        if r.status_code in (401, 403): break
+                        if r.status_code == 400 and try_search: continue
+                        break
+                except Exception as e:
+                    last_err = f"{mdl}: {e}"
                     break
-            except Exception as e:
-                last_err = f"{mdl}: {e}"
-                break
+            if hit_429: break
+    if "429" in last_err:
+        last_err = "Hết lượt gọi miễn phí (429). Đợi 1-2 phút hoặc thêm Key dự phòng vào AI_CHAT_KEY (Key1,Key2)."
     return "", last_err or "Không gọi được model"
 
 def parse_project_files(text):

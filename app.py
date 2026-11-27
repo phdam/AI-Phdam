@@ -245,7 +245,7 @@ def build_smart_sys(intent, sk, media_files, has_img, hist, msg):
         if any(m.startswith(("image/", "video/")) for m in mimes) or len(mimes) > 1: ex.append("- Nhiều Ảnh/Video kỹ thuật: Đọc nhãn số/màu dây/thiết bị từng tệp -> xâu chuỗi đối chiếu chéo -> kết luận rõ; thiếu góc quay thì báo rõ.")
         base += "\n".join(ex)
     return base
-def stream_gemini_mm(key, sys_p, msg, hist, img, media_files):
+def _stream_gemini_mm_one(key, sys_p, msg, hist, img, media_files):
     contents = []
     for h in (hist or [])[-16:]:
         if not isinstance(h, dict): continue
@@ -297,6 +297,23 @@ def stream_gemini_mm(key, sys_p, msg, hist, img, media_files):
             if got: return
         except Exception as e: le = str(e)
     yield f"__ERR__:Gemini HTTP {lc} {le}".strip()
+
+def stream_gemini_mm(key, sys_p, msg, hist, img, media_files):
+    ks = _bc.split_keys(key) or [key]
+    last_e = ""
+    for ak in ks:
+        got_c = False
+        for c in _stream_gemini_mm_one(ak, sys_p, msg, hist, img, media_files):
+            if c.startswith("__ERR__:"):
+                last_e = c
+                break
+            got_c = True
+            yield c
+        if got_c:
+            return
+    if last_e:
+        yield last_e
+
 @app.route("/api/upload-media", methods=["POST"])
 def api_upload_media():
     now = _time.time()
@@ -317,9 +334,11 @@ def api_upload_media():
         tp = os.path.join(UPLOAD_TMP, f"{lid}_{os.path.basename(on)}")
         f.save(tp); sz = os.path.getsize(tp)
         uri, gname = "", ""
-        if ck.startswith("AIza"):
+        ai_ks = [x for x in _bc.split_keys(ck) if x.startswith("AIza")]
+        if ai_ks:
+            ck_up = ai_ks[0]
             try:
-                r1 = SESSION.post("https://generativelanguage.googleapis.com/upload/v1beta/files", headers={"x-goog-api-key": ck, "X-Goog-Upload-Protocol": "resumable", "X-Goog-Upload-Command": "start", "X-Goog-Upload-Header-Content-Length": str(sz), "X-Goog-Upload-Header-Content-Type": mime, "Content-Type": "application/json"}, json={"file": {"display_name": on}}, timeout=20)
+                r1 = SESSION.post("https://generativelanguage.googleapis.com/upload/v1beta/files", headers={"x-goog-api-key": ck_up, "X-Goog-Upload-Protocol": "resumable", "X-Goog-Upload-Command": "start", "X-Goog-Upload-Header-Content-Length": str(sz), "X-Goog-Upload-Header-Content-Type": mime, "Content-Type": "application/json"}, json={"file": {"display_name": on}}, timeout=20)
                 uu = r1.headers.get("x-goog-upload-url") or r1.headers.get("X-Goog-Upload-URL")
                 if r1.status_code == 200 and uu:
                     r2 = SESSION.post(uu, headers={"Content-Length": str(sz), "X-Goog-Upload-Offset": "0", "X-Goog-Upload-Command": "upload, finalize"}, data=open(tp, "rb"), timeout=(15, 300))
@@ -359,14 +378,14 @@ def api_chat_stream():
     def gen():
         yield sse({"intent": intent})
         got, err, full = False, "", ""
-        if (pro_mode or _bc.is_project_build(msg) or _bc.is_research_learn(msg) or _su.is_self_upgrade(msg)) and intent == "chat" and not mf and ck.startswith(("AIza", "AQ.")):
+        if (pro_mode or _bc.is_project_build(msg) or _bc.is_research_learn(msg) or _su.is_self_upgrade(msg)) and intent == "chat" and not mf and _bc.split_keys(ck):
             _, rname, rtemp = _bc.classify_role(msg, False)
             yield sse({"chunk": f"🧠 [{rname} + Verifier]\n\n"})
             ans, ok_py, py_err = _bc.run_verified_pipeline(SESSION, ck, msg, SMART_BRAIN_PROMPT, rname, rtemp)
             if ans:
                 got = True; full = ans
                 yield sse({"chunk": ans})
-        if not got and ck.startswith(("AIza", "AQ.")):
+        if not got and _bc.split_keys(ck):
             for c in stream_gemini_mm(ck, sys_p, msg, hist, img, mf):
                 if c.startswith("__ERR__:"): err = c[8:]; break
                 got = True; full += c; yield sse({"chunk": c})
